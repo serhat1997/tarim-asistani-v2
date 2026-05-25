@@ -1,1 +1,1 @@
-web: python manage.py migrate && gunicorn cari.wsgi
+web: python manage.py migrate && python manage.py collectstatic --noinput && gunicorn cari.wsgi
