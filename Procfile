@@ -1,1 +1,1 @@
-web: gunicorn cari.wsgi
+web: python manage.py migrate && gunicorn cari.wsgi
