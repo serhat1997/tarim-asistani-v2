@@ -54,9 +54,9 @@ def _land_stats(field):
 
 @login_required
 def field_list(request):
-    fields = Field.objects.prefetch_related(
+    fields = Field.objects.filter(user=request.user).prefetch_related(
         'harvests', 'expenses', 'land_transactions', 'transactions'
-    ).all()
+    )
     field_data = []
     for f in fields:
         ls = _land_stats(f)
@@ -101,7 +101,7 @@ def field_create(request):
         except InvalidOperation:
             messages.error(request, 'Geçerli bir alan değeri girin.')
             return render(request, 'fields/field_form.html', {'form_data': request.POST})
-        Field.objects.create(name=name, area=area_val, crop_type=crop_type, notes=notes)
+        Field.objects.create(user=request.user, name=name, area=area_val, crop_type=crop_type, notes=notes)
         messages.success(request, f'"{name}" tarlası eklendi.')
         return redirect('field_list')
     return render(request, 'fields/field_form.html', {})
@@ -109,7 +109,7 @@ def field_create(request):
 
 @login_required
 def field_detail(request, pk):
-    field = get_object_or_404(Field, pk=pk)
+    field = get_object_or_404(Field, pk=pk, user=request.user)
     harvests = field.harvests.all()
     expenses = field.expenses.all()
 
@@ -156,7 +156,7 @@ def field_detail(request, pk):
 
 @login_required
 def field_edit(request, pk):
-    field = get_object_or_404(Field, pk=pk)
+    field = get_object_or_404(Field, pk=pk, user=request.user)
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         area = request.POST.get('area', '').strip().replace(',', '.')
@@ -181,7 +181,7 @@ def field_edit(request, pk):
 
 @login_required
 def field_delete(request, pk):
-    field = get_object_or_404(Field, pk=pk)
+    field = get_object_or_404(Field, pk=pk, user=request.user)
     if request.method == 'POST':
         name = field.name
         field.delete()
@@ -192,7 +192,7 @@ def field_delete(request, pk):
 
 @login_required
 def harvest_add(request, pk):
-    field = get_object_or_404(Field, pk=pk)
+    field = get_object_or_404(Field, pk=pk, user=request.user)
     if request.method == 'POST':
         date_str  = request.POST.get('date', '').strip()
         product   = request.POST.get('product', '').strip()
@@ -217,7 +217,7 @@ def harvest_add(request, pk):
 
 @login_required
 def expense_add(request, pk):
-    field = get_object_or_404(Field, pk=pk)
+    field = get_object_or_404(Field, pk=pk, user=request.user)
     if request.method == 'POST':
         date_str    = request.POST.get('date', '').strip()
         category    = request.POST.get('category', '').strip()
@@ -257,7 +257,7 @@ def expense_delete(request, pk, epk):
 
 @login_required
 def land_transaction_add(request, pk):
-    field = get_object_or_404(Field, pk=pk)
+    field = get_object_or_404(Field, pk=pk, user=request.user)
     if request.method == 'POST':
         tx_type      = request.POST.get('transaction_type', '').strip()
         date_str     = request.POST.get('date', '').strip()

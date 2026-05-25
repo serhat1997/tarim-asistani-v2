@@ -1,7 +1,9 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 
 class Field(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fields', null=True)
     name = models.CharField(max_length=150)
     area = models.DecimalField(max_digits=8, decimal_places=2, help_text='Dönüm')
     crop_type = models.CharField(max_length=100, blank=True)
