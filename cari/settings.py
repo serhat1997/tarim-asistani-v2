@@ -85,7 +85,7 @@ import dj_database_url
 
 DATABASES = {
     'default': dj_database_url.config(
-        default='postgresql://tarim_db_3e8m_user:LV3nXo5leKO4mKi7zIXqg9DtwrjRs5s6@dpg-d8a3b3p9rddc739o83d0-a/tarim_db_3e8m',
+        default='sqlite:///db.sqlite3',
         conn_max_age=600
     )
 }
