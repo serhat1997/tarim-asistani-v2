@@ -6,12 +6,11 @@ class Command(BaseCommand):
     help = 'Admin kullanicisi yoksa olusturur'
 
     def handle(self, *args, **options):
-        if User.objects.filter(username='admin').exists():
-            self.stdout.write('Admin kullanicisi zaten mevcut, atlandi.')
-            return
-        User.objects.create_superuser(
-            username='admin',
-            email='admin@admin.com',
-            password='admin123',
-        )
-        self.stdout.write(self.style.SUCCESS('Admin kullanicisi basariyla olusturuldu.'))
+        user, created = User.objects.get_or_create(username='admin')
+        user.email = 'admin@admin.com'
+        user.is_staff = True
+        user.is_superuser = True
+        user.set_password('admin123')
+        user.save()
+        action = 'olusturuldu' if created else 'sifre guncellendi'
+        self.stdout.write(self.style.SUCCESS(f'Admin kullanicisi {action}.'))
