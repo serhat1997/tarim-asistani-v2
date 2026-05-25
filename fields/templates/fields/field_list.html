@@ -1,0 +1,178 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Tarlalarım{% endblock %}
+{% block page_title %}Tarlalarım{% endblock %}
+
+{% block topbar_right %}
+<a href="{% url 'field_create' %}" class="btn-g"><i class="fas fa-plus"></i> Yeni Tarla</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .fields-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 18px;
+    }
+    .field-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        transition: box-shadow .2s, transform .2s;
+    }
+    .field-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.07); transform: translateY(-2px); }
+    .field-card-header {
+        background: linear-gradient(135deg, #1b4332, #2d6a4f);
+        padding: 18px 20px;
+        display: flex; align-items: center; gap: 14px;
+    }
+    .field-icon {
+        width: 46px; height: 46px; border-radius: 12px;
+        background: rgba(255,255,255,.15);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; color: #fff; flex-shrink: 0;
+    }
+    .field-name { font-size: 1rem; font-weight: 700; color: #fff; }
+    .field-area { font-size: .78rem; color: rgba(255,255,255,.7); margin-top: 2px; }
+    .field-crop { font-size: .72rem; color: rgba(255,255,255,.55); margin-top: 1px; }
+
+    /* Land badge on card */
+    .land-badge {
+        margin-left: auto; flex-shrink: 0;
+        text-align: right;
+    }
+    .land-badge-label { font-size:.64rem; color:rgba(255,255,255,.55); text-transform:uppercase; letter-spacing:.4px; }
+    .land-badge-value { font-size:.95rem; font-weight:700; color:#a3f06a; }
+
+    /* Stat rows */
+    .field-stats {
+        display: grid; grid-template-columns: 1fr 1fr 1fr;
+        border-bottom: 1px solid var(--border);
+    }
+    .stat-item {
+        padding: 12px 10px; text-align: center;
+        border-right: 1px solid var(--border);
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-label { font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--sub); margin-bottom: 4px; }
+    .stat-value { font-size: .9rem; font-weight: 700; }
+    .stat-green { color: #16a34a; }
+    .stat-red   { color: #dc2626; }
+    .stat-blue  { color: #2563eb; }
+    .stat-amber { color: #d97706; }
+    .stat-neutral { color: var(--text); }
+
+    /* Land profitability bar */
+    .land-profit-bar {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; gap: 10px;
+        font-size: .78rem;
+    }
+    .lpb-label { color: var(--sub); font-weight: 600; flex-shrink: 0; }
+    .lpb-track {
+        flex: 1; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden;
+    }
+    .lpb-fill { height: 100%; border-radius: 99px; }
+    .lpb-value { font-weight: 700; flex-shrink: 0; }
+
+    .field-footer { padding: 12px 14px; display: flex; gap: 8px; }
+    .empty-state { text-align:center; padding:80px 20px; color:var(--sub); }
+    .empty-state i { font-size:3.5rem; margin-bottom:16px; opacity:.2; display:block; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if field_data %}
+<div class="fields-grid">
+    {% for d in field_data %}
+    {% with f=d.field %}
+    <div class="field-card">
+        <div class="field-card-header">
+            <div class="field-icon"><i class="fas fa-seedling"></i></div>
+            <div>
+                <div class="field-name">{{ f.name }}</div>
+                <div class="field-area"><i class="fas fa-ruler-combined me-1"></i>{{ f.area }} dönüm</div>
+                {% if f.crop_type %}<div class="field-crop"><i class="fas fa-leaf me-1"></i>{{ f.crop_type }}</div>{% endif %}
+            </div>
+            {% if d.has_purchase %}
+            <div class="land-badge">
+                <div class="land-badge-label">Alış/Dönüm</div>
+                <div class="land-badge-value">₺{{ d.avg_cost_per_dec|tr_num }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Agricultural stats -->
+        <div class="field-stats">
+            <div class="stat-item">
+                <div class="stat-label">Toplam Gelir</div>
+                <div class="stat-value stat-green">₺{{ d.total_rev|tr_num }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Toplam Gider</div>
+                <div class="stat-value stat-red">₺{{ d.total_exp|tr_num }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Tarımsal Kâr/Dön.</div>
+                <div class="stat-value {% if d.agri_per_dec >= 0 %}stat-green{% else %}stat-red{% endif %}">
+                    ₺{{ d.agri_per_dec|tr_num }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Land profitability bar (only when both purchase and sale exist) -->
+        {% if d.has_purchase and d.has_sale %}
+        <div class="land-profit-bar">
+            <span class="lpb-label"><i class="fas fa-landmark me-1"></i>Arazi Kâr/Dön.</span>
+            <div class="lpb-track">
+                {% if d.land_profit_per_dec > 0 %}
+                <div class="lpb-fill" style="width:100%;background:#16a34a;"></div>
+                {% else %}
+                <div class="lpb-fill" style="width:100%;background:#dc2626;"></div>
+                {% endif %}
+            </div>
+            <span class="lpb-value {% if d.land_profit_per_dec >= 0 %}stat-green{% else %}stat-red{% endif %}">
+                ₺{{ d.land_profit_per_dec|tr_num }}
+            </span>
+        </div>
+        {% elif d.has_purchase and not d.has_sale %}
+        <div class="land-profit-bar" style="color:var(--sub);">
+            <i class="fas fa-landmark me-1"></i>
+            Satış: <span style="margin-left:4px;font-style:italic;">henüz yok</span>
+            <span style="margin-left:auto;color:#d97706;font-size:.72rem;font-weight:600;">
+                Alış: ₺{{ d.avg_cost_per_dec|tr_num }}/dön.
+            </span>
+        </div>
+        {% endif %}
+
+        <div class="field-footer">
+            <a href="{% url 'field_detail' f.pk %}" class="btn-g" style="flex:1;justify-content:center;">
+                <i class="fas fa-chart-line"></i> Detay & Karlılık
+            </a>
+            <a href="{% url 'field_edit' f.pk %}" class="btn-o" style="padding:9px 14px;">
+                <i class="fas fa-edit"></i>
+            </a>
+            <form method="post" action="{% url 'field_delete' f.pk %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn-danger-soft" style="padding:9px 14px;"
+                    onclick="return confirm('{{ f.name }} tarlasını ve tüm kayıtlarını silmek istiyor musunuz?')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-tractor"></i>
+    <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">Henüz tarla eklenmedi</div>
+    <div style="font-size:.85rem;margin-bottom:20px;">İlk tarlanızı ekleyerek karlılık takibine başlayın.</div>
+    <a href="{% url 'field_create' %}" class="btn-g" style="display:inline-flex;">
+        <i class="fas fa-plus"></i> İlk Tarlayı Ekle
+    </a>
+</div>
+{% endif %}
+{% endblock %}

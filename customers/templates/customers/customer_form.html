@@ -1,0 +1,92 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}{% if action == 'edit' %}Cari Düzenle{% else %}Yeni Cari{% endif %}{% endblock %}
+{% block page_title %}{% if action == 'edit' %}Cari Düzenle{% else %}Yeni Cari Ekle{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-wrap { max-width: 640px; }
+    .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
+    .form-card-title { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+    .form-card-sub   { font-size: .83rem; color: var(--sub); margin-bottom: 22px; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
+    @media (max-width:640px) { .field-row { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-wrap">
+    <div class="form-card">
+        <div class="form-card-title">
+            <i class="fas fa-{% if action == 'edit' %}edit{% else %}user-plus{% endif %} me-2" style="color:var(--primary-light);"></i>
+            {% if action == 'edit' %}{{ customer.name }} — Bilgileri Düzenle{% else %}Yeni Cari Ekle{% endif %}
+        </div>
+        <div class="form-card-sub">
+            {% if action == 'edit' %}Cari bilgilerini güncelleyip kaydedin.{% else %}Cari adı zorunludur, diğer alanlar isteğe bağlıdır.{% endif %}
+        </div>
+
+        {% if errors %}
+        <div class="mb-3">
+            {% for e in errors %}
+            <div class="alert alert-danger" style="border-radius:10px;border:none;font-size:.86rem;padding:10px 14px;">{{ e }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <label class="form-label">Ad Soyad / Firma Adı <span style="color:#dc2626;">*</span></label>
+                <input type="text" name="name" class="form-control"
+                    value="{{ form_data.name|default:'' }}"
+                    placeholder="Cari adını giriniz" required>
+            </div>
+
+            <div class="field-row mb-3">
+                <div>
+                    <label class="form-label">TC Kimlik No / VKN</label>
+                    <input type="text" name="tc_vkn" class="form-control"
+                        value="{{ form_data.tc_vkn|default:'' }}"
+                        placeholder="11 veya 10 haneli numara"
+                        maxlength="20" inputmode="numeric">
+                </div>
+                <div>
+                    <label class="form-label">Telefon</label>
+                    <input type="text" name="phone" class="form-control"
+                        value="{{ form_data.phone|default:'' }}"
+                        placeholder="05xx xxx xxxx">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">E-posta</label>
+                <input type="email" name="email" class="form-control"
+                    value="{{ form_data.email|default:'' }}"
+                    placeholder="ornek@mail.com">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Adres</label>
+                <textarea name="address" class="form-control" rows="2"
+                    placeholder="Açık adres">{{ form_data.address|default:'' }}</textarea>
+            </div>
+
+            <div class="form-actions">
+                {% if action == 'edit' %}
+                <a href="{% url 'customer_list' %}?customer={{ customer.pk }}" class="btn-o">
+                    <i class="fas fa-times"></i> İptal
+                </a>
+                {% else %}
+                <a href="{% url 'customer_list' %}" class="btn-o">
+                    <i class="fas fa-times"></i> İptal
+                </a>
+                {% endif %}
+                <button type="submit" class="btn-g">
+                    <i class="fas fa-save"></i> {% if action == 'edit' %}Güncelle{% else %}Kaydet{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

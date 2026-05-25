@@ -1,0 +1,116 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}{{ customer.name }} — Ekstre{% endblock %}
+{% block page_title %}Cari Ekstresi{% endblock %}
+
+{% block topbar_right %}
+<a href="{% url 'customer_list' %}" class="btn-o" style="padding:7px 14px;font-size:.82rem;">
+    <i class="fas fa-arrow-left"></i> Listeye Dön
+</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .info-grid {
+        display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 22px;
+    }
+    .info-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+    .info-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--sub); margin-bottom: 5px; }
+    .info-value { font-size: .95rem; font-weight: 600; color: var(--text); }
+    .bal-pos { color: #16a34a; font-size: 1.2rem; font-weight: 800; }
+    .bal-neg { color: #dc2626; font-size: 1.2rem; font-weight: 800; }
+    .empty-state { text-align:center; padding:50px 20px; color:var(--sub); }
+    .empty-state i { font-size:2.5rem; margin-bottom:12px; opacity:.3; display:block; }
+    @media (max-width:768px) { .info-grid { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width:480px) { .info-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Cari bilgi kartları -->
+<div class="info-grid">
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-user me-1"></i> Cari Adı</div>
+        <div class="info-value">{{ customer.name }}</div>
+    </div>
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-phone me-1"></i> Telefon</div>
+        <div class="info-value">{{ customer.phone|default:'—' }}</div>
+    </div>
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-envelope me-1"></i> E-posta</div>
+        <div class="info-value" style="font-size:.88rem;">{{ customer.email|default:'—' }}</div>
+    </div>
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-wallet me-1"></i> Bakiye</div>
+        {% if customer.balance >= 0 %}
+            <div class="bal-pos">₺{{ customer.balance|tr_num }}</div>
+        {% else %}
+            <div class="bal-neg">₺{{ customer.balance|tr_num }}</div>
+        {% endif %}
+    </div>
+</div>
+
+{% if customer.address %}
+<div class="info-card mb-4" style="padding:14px 18px;">
+    <div class="info-label" style="margin-bottom:4px;"><i class="fas fa-map-marker-alt me-1"></i> Adres</div>
+    <div class="info-value" style="font-weight:400;font-size:.9rem;">{{ customer.address }}</div>
+</div>
+{% endif %}
+
+<!-- İşlem tablosu -->
+<div class="surface">
+    <div class="card-header-bar">
+        <div class="ch-title"><i class="fas fa-receipt me-2" style="color:var(--primary-light);"></i>İşlem Geçmişi</div>
+        <span style="font-size:.77rem;color:var(--sub);">{{ transactions|length }} kayıt</span>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="dt">
+            <thead>
+                <tr>
+                    <th>Tarih</th>
+                    <th>Tür</th>
+                    <th>Ürün</th>
+                    <th>Miktar</th>
+                    <th>Birim Fiyat</th>
+                    <th>Toplam</th>
+                    <th>Açıklama</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in transactions %}
+                <tr>
+                    <td style="font-size:.82rem;color:var(--sub);">{{ t.date }}</td>
+                    <td>
+                        {% if t.type == 'sale' %}
+                            <span class="bp bp-sale"><i class="fas fa-arrow-up"></i> Satış</span>
+                        {% else %}
+                            <span class="bp bp-purchase"><i class="fas fa-arrow-down"></i> Alış</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ t.get_product_display }}</td>
+                    <td>{{ t.quantity }} {{ t.get_unit_display }}</td>
+                    <td>₺{{ t.unit_price|tr_num }}</td>
+                    <td>
+                        {% if t.type == 'sale' %}
+                            <strong style="color:#16a34a;">₺{{ t.amount|tr_num }}</strong>
+                        {% else %}
+                            <strong style="color:#dc2626;">₺{{ t.amount|tr_num }}</strong>
+                        {% endif %}
+                    </td>
+                    <td style="color:var(--sub);font-size:.82rem;">{{ t.description|truncatewords:8|default:'—' }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            Bu cariye ait işlem bulunmamaktadır.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

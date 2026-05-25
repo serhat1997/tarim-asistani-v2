@@ -1,0 +1,623 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}{{ field.name }} — Tarla Detayı{% endblock %}
+{% block page_title %}{{ field.name }}{% endblock %}
+
+{% block topbar_right %}
+<a href="{% url 'field_list' %}" class="btn-o" style="padding:7px 14px;font-size:.82rem;">
+    <i class="fas fa-arrow-left"></i> Tarlalar
+</a>
+<a href="{% url 'field_edit' field.pk %}" class="btn-o" style="padding:7px 14px;font-size:.82rem;">
+    <i class="fas fa-edit"></i> Düzenle
+</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* KPI strip */
+    .kpi-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+    .kpi { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; }
+    .kpi-label { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--sub); margin-bottom:6px; display:flex; align-items:center; gap:5px; }
+    .kpi-value { font-size:1.25rem; font-weight:800; }
+    .kpi-sub   { font-size:.72rem; color:var(--sub); margin-top:2px; }
+    .kpi-green { color:#16a34a; } .kpi-red { color:#dc2626; }
+    .kpi-blue  { color:#2563eb; } .kpi-amber { color:#d97706; }
+    .kpi-gray  { color:var(--text); }
+
+    /* Tabs */
+    .tabs { display:flex; gap:4px; margin-bottom:18px; border-bottom:2px solid var(--border); flex-wrap:wrap; }
+    .tab-btn {
+        padding:9px 18px; font-size:.84rem; font-weight:600;
+        background:none; border:none; cursor:pointer;
+        color:var(--sub); border-bottom:2px solid transparent; margin-bottom:-2px;
+        transition:color .15s, border-color .15s;
+    }
+    .tab-btn.active { color:var(--primary-light); border-bottom-color:var(--primary-light); }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    /* Inline form card */
+    .add-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:18px; }
+    .add-card-title { font-size:.85rem; font-weight:700; margin-bottom:14px; }
+    .fg2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .fg3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+    .fg4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; }
+
+    /* Category badges */
+    .cat-iscilik { background:rgba(99,102,241,.1); color:#4f46e5; }
+    .cat-gubre   { background:rgba(34,197,94,.1);  color:#16a34a; }
+    .cat-sulama  { background:rgba(59,130,246,.1);  color:#2563eb; }
+    .cat-ilac    { background:rgba(239,68,68,.1);   color:#dc2626; }
+    .cat-yakit   { background:rgba(245,158,11,.1);  color:#d97706; }
+    .cat-ekipman { background:rgba(107,114,128,.1); color:#4b5563; }
+    .cat-diger   { background:rgba(107,114,128,.1); color:#6b7280; }
+
+    /* Land profitability analysis panel */
+    .profit-panel {
+        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+        border-radius: var(--radius); padding: 24px 28px; margin-bottom: 20px; color: #fff;
+    }
+    .pp-title { font-size:.82rem; font-weight:700; opacity:.65; text-transform:uppercase; letter-spacing:.6px; margin-bottom:18px; }
+    .pp-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+    .pp-card {
+        background: rgba(255,255,255,.07);
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 10px; padding: 14px 16px; text-align:center;
+    }
+    .pp-card-label { font-size:.65rem; font-weight:700; opacity:.6; text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
+    .pp-card-value { font-size:1.15rem; font-weight:800; }
+    .pp-card-sub   { font-size:.7rem; opacity:.55; margin-top:3px; }
+    .pp-green { color:#6ee7b7; } .pp-red { color:#fca5a5; }
+    .pp-amber { color:#fde68a; } .pp-white { color:#fff; }
+
+    /* Per-sale profit row badge */
+    .sale-profit-badge {
+        display:inline-flex; align-items:center; gap:4px;
+        padding:3px 9px; border-radius:7px; font-size:.75rem; font-weight:700;
+    }
+    .spb-pos { background:rgba(22,163,74,.12); color:#16a34a; }
+    .spb-neg { background:rgba(220,38,38,.1);  color:#dc2626; }
+
+    /* Type badge */
+    .tx-alis  { background:rgba(37,99,235,.1);  color:#2563eb; }
+    .tx-satis { background:rgba(22,163,74,.12); color:#16a34a; }
+
+    .empty-state { text-align:center; padding:40px 20px; color:var(--sub); }
+    .empty-state i { font-size:2rem; opacity:.25; display:block; margin-bottom:10px; }
+
+    @media(max-width:900px) { .kpi-strip{grid-template-columns:1fr 1fr;} .pp-grid{grid-template-columns:1fr 1fr;} }
+    @media(max-width:600px) { .kpi-strip{grid-template-columns:1fr 1fr;} .fg3,.fg4{grid-template-columns:1fr 1fr;} }
+    @media(max-width:460px) { .kpi-strip{grid-template-columns:1fr 1fr;} .fg3,.fg4,.fg2{grid-template-columns:1fr;} }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── KPI Strip ── -->
+<div class="kpi-strip">
+    <div class="kpi">
+        <div class="kpi-label"><i class="fas fa-ruler-combined"></i> Alan</div>
+        <div class="kpi-value kpi-gray">{{ field.area }} <span style="font-size:.8rem;font-weight:500;">dönüm</span></div>
+        {% if field.crop_type %}<div class="kpi-sub">{{ field.crop_type }}</div>{% endif %}
+    </div>
+    <div class="kpi">
+        <div class="kpi-label"><i class="fas fa-landmark"></i> Alış Maliyeti/Dönüm</div>
+        {% if has_purchase %}
+        <div class="kpi-value kpi-amber">₺{{ avg_cost_per_dec|tr_num }}</div>
+        <div class="kpi-sub">{{ total_purchase_area|floatformat:2 }} dön. alındı</div>
+        {% else %}
+        <div class="kpi-value kpi-gray" style="font-size:.9rem;">Kayıt yok</div>
+        {% endif %}
+    </div>
+    <div class="kpi">
+        <div class="kpi-label"><i class="fas fa-hand-holding-usd"></i> Satış Fiyatı/Dönüm</div>
+        {% if has_sale %}
+        <div class="kpi-value kpi-blue">₺{{ avg_sale_per_dec|tr_num }}</div>
+        <div class="kpi-sub">{{ total_sale_area|floatformat:2 }} dön. satıldı</div>
+        {% else %}
+        <div class="kpi-value kpi-gray" style="font-size:.9rem;">Satış yok</div>
+        {% endif %}
+    </div>
+    <div class="kpi">
+        <div class="kpi-label"><i class="fas fa-chart-line"></i> Tarımsal Kâr/Dönüm</div>
+        <div class="kpi-value {% if agri_net_per_dec >= 0 %}kpi-green{% else %}kpi-red{% endif %}">
+            ₺{{ agri_net_per_dec|tr_num }}
+        </div>
+        <div class="kpi-sub">
+            Gelir ₺{{ total_revenue|tr_num }} · Gider ₺{{ total_expense|tr_num }}
+            {% if linked_txns %}· <span style="color:#7c3aed;">{{ linked_txns|length }} bağlı işlem dahil</span>{% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ── Tabs ── -->
+<div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('hasat', this)">
+        <i class="fas fa-seedling me-1"></i> Hasat Kayıtları
+        <span style="background:rgba(64,145,108,.12);color:var(--primary-light);border-radius:999px;padding:1px 7px;font-size:.72rem;margin-left:5px;">{{ harvests|length }}</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('gider', this)">
+        <i class="fas fa-receipt me-1"></i> Giderler
+        <span style="background:rgba(239,68,68,.1);color:#dc2626;border-radius:999px;padding:1px 7px;font-size:.72rem;margin-left:5px;">{{ expenses|length }}</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('arazi', this)">
+        <i class="fas fa-landmark me-1"></i> Arazi İşlemleri & Karlılık
+        <span style="background:rgba(37,99,235,.1);color:#2563eb;border-radius:999px;padding:1px 7px;font-size:.72rem;margin-left:5px;">{{ purchases|length|add:sales|length }}</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('bagliislem', this)">
+        <i class="fas fa-link me-1"></i> Bağlı İşlemler
+        <span style="background:rgba(139,92,246,.1);color:#7c3aed;border-radius:999px;padding:1px 7px;font-size:.72rem;margin-left:5px;">{{ linked_txns|length }}</span>
+    </button>
+</div>
+
+<!-- ─── HASAT TAB ─── -->
+<div id="tab-hasat" class="tab-panel active">
+    <div class="add-card">
+        <div class="add-card-title"><i class="fas fa-plus-circle me-1" style="color:var(--primary-light);"></i> Hasat Kaydı Ekle</div>
+        <form method="post" action="{% url 'harvest_add' field.pk %}">
+            {% csrf_token %}
+            <div class="fg4 mb-2">
+                <div>
+                    <label class="form-label">Tarih</label>
+                    <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                </div>
+                <div>
+                    <label class="form-label">Ürün</label>
+                    <select name="product" class="form-select" required>
+                        {% for val, label in product_choices %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Miktar</label>
+                    <input type="text" inputmode="decimal" name="quantity" class="form-control" placeholder="0" required>
+                </div>
+                <div>
+                    <label class="form-label">Birim</label>
+                    <select name="unit" class="form-select">
+                        {% for val, label in unit_choices %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="fg2 mb-2">
+                <div>
+                    <label class="form-label">Birim Fiyat (₺) <span style="font-weight:400;font-size:.75rem;">(opsiyonel)</span></label>
+                    <input type="text" inputmode="decimal" name="unit_price" class="form-control" placeholder="0.00">
+                </div>
+                <div>
+                    <label class="form-label">Not</label>
+                    <input type="text" name="notes" class="form-control" placeholder="Hasat notu…">
+                </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+                <button type="submit" class="btn-g"><i class="fas fa-save"></i> Kaydet</button>
+            </div>
+        </form>
+    </div>
+    <div class="surface">
+        <div class="card-header-bar">
+            <div class="ch-title"><i class="fas fa-list me-2" style="color:var(--primary-light);"></i>Hasat Geçmişi</div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="dt">
+                <thead><tr><th>Tarih</th><th>Ürün</th><th>Miktar</th><th>Birim Fiyat</th><th>Toplam</th><th>Not</th><th></th></tr></thead>
+                <tbody>
+                    {% for h in harvests %}
+                    <tr>
+                        <td style="font-size:.82rem;color:var(--sub);">{{ h.date|date:"d.m.Y" }}</td>
+                        <td><span class="bp bp-sale">{{ h.get_product_display }}</span></td>
+                        <td>{{ h.quantity }} {{ h.get_unit_display }}</td>
+                        <td style="color:var(--sub);">{% if h.unit_price %}₺{{ h.unit_price|tr_num }}{% else %}—{% endif %}</td>
+                        <td>{% if h.unit_price %}<strong style="color:#16a34a;">₺{{ h.amount|tr_num }}</strong>{% else %}—{% endif %}</td>
+                        <td style="color:var(--sub);font-size:.82rem;">{{ h.notes|default:'—' }}</td>
+                        <td>
+                            <form method="post" action="{% url 'harvest_delete' field.pk h.pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-danger-soft" style="padding:5px 10px;font-size:.75rem;"
+                                    onclick="return confirm('Bu hasat kaydını silmek istiyor musunuz?')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7"><div class="empty-state"><i class="fas fa-seedling"></i>Henüz hasat kaydı yok.</div></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ─── GİDER TAB ─── -->
+<div id="tab-gider" class="tab-panel">
+    <div class="add-card">
+        <div class="add-card-title"><i class="fas fa-plus-circle me-1" style="color:#dc2626;"></i> Gider Ekle</div>
+        <form method="post" action="{% url 'expense_add' field.pk %}">
+            {% csrf_token %}
+            <div class="fg3 mb-2">
+                <div>
+                    <label class="form-label">Tarih</label>
+                    <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                </div>
+                <div>
+                    <label class="form-label">Kategori</label>
+                    <select name="category" class="form-select" required>
+                        {% for val, label in expense_categories %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Tutar (₺)</label>
+                    <input type="text" inputmode="decimal" name="amount" class="form-control" placeholder="0.00" required>
+                </div>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Açıklama</label>
+                <input type="text" name="description" class="form-control" placeholder="Gider açıklaması…">
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+                <button type="submit" class="btn-danger-soft" style="padding:9px 18px;font-size:.87rem;font-weight:600;">
+                    <i class="fas fa-save"></i> Kaydet
+                </button>
+            </div>
+        </form>
+    </div>
+    <div class="surface">
+        <div class="card-header-bar">
+            <div class="ch-title"><i class="fas fa-list me-2" style="color:#dc2626;"></i>Gider Geçmişi</div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="dt">
+                <thead><tr><th>Tarih</th><th>Kategori</th><th>Tutar</th><th>Açıklama</th><th></th></tr></thead>
+                <tbody>
+                    {% for e in expenses %}
+                    <tr>
+                        <td style="font-size:.82rem;color:var(--sub);">{{ e.date|date:"d.m.Y" }}</td>
+                        <td><span class="bp cat-{{ e.category }}">{{ e.get_category_display }}</span></td>
+                        <td><strong style="color:#dc2626;">₺{{ e.amount|tr_num }}</strong></td>
+                        <td style="color:var(--sub);font-size:.82rem;">{{ e.description|default:'—' }}</td>
+                        <td>
+                            <form method="post" action="{% url 'expense_delete' field.pk e.pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-danger-soft" style="padding:5px 10px;font-size:.75rem;"
+                                    onclick="return confirm('Bu gider kaydını silmek istiyor musunuz?')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5"><div class="empty-state"><i class="fas fa-receipt"></i>Henüz gider kaydı yok.</div></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ─── ARAZİ İŞLEMLERİ TAB ─── -->
+<div id="tab-arazi" class="tab-panel">
+
+    <!-- Profitability analysis panel (only when both exist) -->
+    {% if has_purchase and has_sale %}
+    <div class="profit-panel">
+        <div class="pp-title"><i class="fas fa-calculator me-1"></i> Arazi Karlılık Analizi</div>
+        <div class="pp-grid">
+            <div class="pp-card">
+                <div class="pp-card-label">Toplam Yatırım</div>
+                <div class="pp-card-value pp-amber">₺{{ total_purchase_cost|tr_num }}</div>
+                <div class="pp-card-sub">{{ total_purchase_area|floatformat:2 }} dönüm · ₺{{ avg_cost_per_dec|tr_num }}/dön.</div>
+            </div>
+            <div class="pp-card">
+                <div class="pp-card-label">Toplam Satış Geliri</div>
+                <div class="pp-card-value pp-white">₺{{ total_sale_revenue|tr_num }}</div>
+                <div class="pp-card-sub">{{ total_sale_area|floatformat:2 }} dönüm · ₺{{ avg_sale_per_dec|tr_num }}/dön.</div>
+            </div>
+            <div class="pp-card">
+                <div class="pp-card-label">Arazi Net Kârı</div>
+                <div class="pp-card-value {% if land_profit >= 0 %}pp-green{% else %}pp-red{% endif %}">
+                    ₺{{ land_profit|tr_num }}
+                </div>
+                <div class="pp-card-sub">₺{{ land_profit_per_dec|tr_num }}/dönüm</div>
+            </div>
+            <div class="pp-card">
+                <div class="pp-card-label">Getiri Oranı (ROI)</div>
+                <div class="pp-card-value {% if land_roi >= 0 %}pp-green{% else %}pp-red{% endif %}">
+                    %{{ land_roi|floatformat:1 }}
+                </div>
+                <div class="pp-card-sub">Satılan alan üzerinden</div>
+            </div>
+        </div>
+    </div>
+    {% elif has_purchase and not has_sale %}
+    <div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:var(--radius);padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:12px;font-size:.85rem;color:#92400e;">
+        <i class="fas fa-info-circle" style="font-size:1.1rem;"></i>
+        <span>Karlılık analizi için en az bir <strong>satış işlemi</strong> eklenmelidir. Ortalama alış maliyeti: <strong>₺{{ avg_cost_per_dec|tr_num }}/dönüm</strong></span>
+    </div>
+    {% endif %}
+
+    <!-- Add land transaction form -->
+    <div class="add-card">
+        <div class="add-card-title"><i class="fas fa-plus-circle me-1" style="color:#2563eb;"></i> Arazi İşlemi Ekle</div>
+        <form method="post" action="{% url 'land_transaction_add' field.pk %}">
+            {% csrf_token %}
+            <!-- Row 1: type + date + area + price/dec -->
+            <div class="fg4 mb-2">
+                <div>
+                    <label class="form-label">İşlem Türü</label>
+                    <select name="transaction_type" class="form-select" required id="txTypeSelect" onchange="updateTxColor(this)">
+                        <option value="alis">📥 Alış (Satın Alma)</option>
+                        <option value="satis">📤 Satış</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Tarih</label>
+                    <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                </div>
+                <div>
+                    <label class="form-label">Alan (Dönüm)</label>
+                    <input type="text" inputmode="decimal" name="area_decare" class="form-control" placeholder="ör. 5.50" required>
+                </div>
+                <div>
+                    <label class="form-label">Dönüm Fiyatı (₺)</label>
+                    <input type="text" inputmode="decimal" name="price_per_decare" class="form-control" placeholder="ör. 120.000" required id="pricePerDec" oninput="calcTotal()">
+                </div>
+            </div>
+            <!-- Row 2: additional costs + counterparty + deed_no + TOTAL preview -->
+            <div class="fg4 mb-2">
+                <div>
+                    <label class="form-label">Ek Masraflar (₺) <span style="font-weight:400;font-size:.73rem;">(tapu, vergi…)</span></label>
+                    <input type="text" inputmode="decimal" name="additional_costs" class="form-control" placeholder="0.00" id="addCosts" oninput="calcTotal()">
+                </div>
+                <div>
+                    <label class="form-label">Satıcı / Alıcı</label>
+                    <input type="text" name="counterparty" class="form-control" placeholder="Karşı taraf adı">
+                </div>
+                <div>
+                    <label class="form-label">Tapu / Sözleşme No</label>
+                    <input type="text" name="deed_no" class="form-control" placeholder="ör. 2024/12345">
+                </div>
+                <div>
+                    <label class="form-label">Hesaplanan Toplam</label>
+                    <div id="totalPreview" style="background:rgba(37,99,235,.06);border:1.5px solid rgba(37,99,235,.2);border-radius:10px;padding:10px 12px;font-weight:700;font-size:1rem;color:#2563eb;min-height:42px;display:flex;align-items:center;">—</div>
+                </div>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Not</label>
+                <input type="text" name="notes" class="form-control" placeholder="İşlem notu…">
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+                <button type="submit" class="btn-g"><i class="fas fa-save"></i> Kaydet</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Transactions table -->
+    <div class="surface">
+        <div class="card-header-bar">
+            <div class="ch-title"><i class="fas fa-history me-2" style="color:#2563eb;"></i>Arazi İşlem Geçmişi</div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="dt">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Tür</th>
+                        <th>Alan (Dön.)</th>
+                        <th>Dönüm Fiyatı</th>
+                        <th>Ek Masraf</th>
+                        <th>Toplam (Net)</th>
+                        {% if has_purchase %}<th>Kâr/Dönüm</th>{% endif %}
+                        <th>Karşı Taraf</th>
+                        <th>Tapu/Belge No</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Purchases first -->
+                    {% for t in purchases %}
+                    <tr>
+                        <td style="font-size:.82rem;color:var(--sub);">{{ t.date|date:"d.m.Y" }}</td>
+                        <td><span class="bp tx-alis"><i class="fas fa-arrow-down me-1"></i>Alış</span></td>
+                        <td style="font-weight:600;">{{ t.area_decare|floatformat:2 }}</td>
+                        <td>₺{{ t.price_per_decare|tr_num }}</td>
+                        <td style="color:var(--sub);">{% if t.additional_costs %}₺{{ t.additional_costs|tr_num }}{% else %}—{% endif %}</td>
+                        <td><strong style="color:#d97706;">₺{{ t.net_amount|tr_num }}</strong></td>
+                        {% if has_purchase %}<td style="color:var(--sub);font-style:italic;font-size:.78rem;">Maliyet</td>{% endif %}
+                        <td style="font-size:.82rem;color:var(--sub);">{{ t.counterparty|default:'—' }}</td>
+                        <td style="font-size:.78rem;color:var(--sub);">{{ t.deed_no|default:'—' }}</td>
+                        <td>
+                            <form method="post" action="{% url 'land_transaction_delete' field.pk t.pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-danger-soft" style="padding:5px 10px;font-size:.75rem;"
+                                    onclick="return confirm('Bu alış kaydını silmek istiyor musunuz?')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    <!-- Sales with profitability -->
+                    {% for t in sales %}
+                    <tr>
+                        <td style="font-size:.82rem;color:var(--sub);">{{ t.date|date:"d.m.Y" }}</td>
+                        <td><span class="bp tx-satis"><i class="fas fa-arrow-up me-1"></i>Satış</span></td>
+                        <td style="font-weight:600;">{{ t.area_decare|floatformat:2 }}</td>
+                        <td>₺{{ t.price_per_decare|tr_num }}</td>
+                        <td style="color:var(--sub);">{% if t.additional_costs %}₺{{ t.additional_costs|tr_num }}{% else %}—{% endif %}</td>
+                        <td><strong style="color:#16a34a;">₺{{ t.net_amount|tr_num }}</strong></td>
+                        {% if has_purchase %}
+                        <td>
+                            <div>
+                                <span class="sale-profit-badge {% if t.is_profit %}spb-pos{% else %}spb-neg{% endif %}">
+                                    {% if t.is_profit %}+{% endif %}₺{{ t.profit_per_dec|tr_num }}/dön.
+                                </span>
+                                <div style="font-size:.7rem;color:var(--sub);margin-top:3px;">
+                                    Toplam: <strong class="{% if t.is_profit %}kpi-green{% else %}kpi-red{% endif %}">₺{{ t.total_profit|tr_num }}</strong>
+                                    · <span class="{% if t.is_profit %}kpi-green{% else %}kpi-red{% endif %}">%{{ t.roi_pct|floatformat:1 }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        {% endif %}
+                        <td style="font-size:.82rem;color:var(--sub);">{{ t.counterparty|default:'—' }}</td>
+                        <td style="font-size:.78rem;color:var(--sub);">{{ t.deed_no|default:'—' }}</td>
+                        <td>
+                            <form method="post" action="{% url 'land_transaction_delete' field.pk t.pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-danger-soft" style="padding:5px 10px;font-size:.75rem;"
+                                    onclick="return confirm('Bu satış kaydını silmek istiyor musunuz?')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not purchases and not sales %}
+                    <tr>
+                        <td colspan="10">
+                            <div class="empty-state">
+                                <i class="fas fa-landmark"></i>
+                                Henüz arazi işlem kaydı yok. Yukarıdaki formu kullanarak alış veya satış ekleyebilirsiniz.
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ─── BAĞLI İŞLEMLER TAB ─── -->
+<div id="tab-bagliislem" class="tab-panel">
+
+    {% if linked_txns %}
+    <!-- Özet bar -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
+        <div style="background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.2);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:12px;">
+            <div style="width:38px;height:38px;border-radius:10px;background:rgba(22,163,74,.12);display:flex;align-items:center;justify-content:center;color:#16a34a;font-size:1rem;flex-shrink:0;">
+                <i class="fas fa-arrow-up"></i>
+            </div>
+            <div>
+                <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--sub);">Bağlı Satış Geliri</div>
+                <div style="font-size:1.1rem;font-weight:800;color:#16a34a;">₺{{ linked_revenue|tr_num }}</div>
+                <div style="font-size:.72rem;color:var(--sub);">{{ linked_sales|length }} satış işlemi</div>
+            </div>
+        </div>
+        <div style="background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.15);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:12px;">
+            <div style="width:38px;height:38px;border-radius:10px;background:rgba(220,38,38,.1);display:flex;align-items:center;justify-content:center;color:#dc2626;font-size:1rem;flex-shrink:0;">
+                <i class="fas fa-arrow-down"></i>
+            </div>
+            <div>
+                <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--sub);">Bağlı Alış Gideri</div>
+                <div style="font-size:1.1rem;font-weight:800;color:#dc2626;">₺{{ linked_expense|tr_num }}</div>
+                <div style="font-size:.72rem;color:var(--sub);">{{ linked_purchases|length }} alış işlemi</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- İşlemler tablosu -->
+    <div class="surface">
+        <div class="card-header-bar">
+            <div class="ch-title">
+                <i class="fas fa-link me-2" style="color:#7c3aed;"></i>Tarla Bağlantılı Cari İşlemler
+            </div>
+            <div style="font-size:.77rem;color:var(--sub);">İşlemler sekmesinde tarla seçilerek eklenen kayıtlar</div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="dt">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Tür</th>
+                        <th>Cari</th>
+                        <th>Ürün</th>
+                        <th>Miktar</th>
+                        <th>Birim Fiyat</th>
+                        <th>Tutar</th>
+                        <th>Ref. No</th>
+                        <th>Açıklama</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in linked_txns %}
+                    <tr>
+                        <td style="font-size:.82rem;color:var(--sub);">{{ t.date|date:"d.m.Y" }}</td>
+                        <td>
+                            {% if t.type == 'sale' %}
+                            <span class="bp bp-sale"><i class="fas fa-arrow-up me-1"></i>Satış</span>
+                            {% else %}
+                            <span class="bp bp-purchase"><i class="fas fa-arrow-down me-1"></i>Alış</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-weight:600;">{{ t.customer.name }}</td>
+                        <td><span class="bp" style="background:rgba(139,92,246,.08);color:#7c3aed;">{{ t.get_product_display }}</span></td>
+                        <td style="color:var(--sub);">{{ t.quantity }} {{ t.get_unit_display }}</td>
+                        <td style="color:var(--sub);">₺{{ t.unit_price|tr_num }}</td>
+                        <td>
+                            {% if t.type == 'sale' %}
+                            <strong style="color:#16a34a;">+₺{{ t.amount|tr_num }}</strong>
+                            {% else %}
+                            <strong style="color:#dc2626;">−₺{{ t.amount|tr_num }}</strong>
+                            {% endif %}
+                        </td>
+                        <td style="font-size:.8rem;color:var(--sub);">{{ t.reference_no|default:'—' }}</td>
+                        <td style="font-size:.8rem;color:var(--sub);">{{ t.description|default:'—' }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="9">
+                        <div class="empty-state">
+                            <i class="fas fa-link"></i>
+                            Bu tarlaya bağlı cari işlem yok.<br>
+                            <span style="font-size:.78rem;">İşlemler → Yeni İşlem eklerken Tarla seçeneğinden bu tarlayı seçin.</span>
+                        </div>
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function switchTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+}
+
+// Live total calculation for land transaction form
+function calcTotal() {
+    const areaInput  = document.querySelector('[name="area_decare"]');
+    const priceInput = document.getElementById('pricePerDec');
+    const costsInput = document.getElementById('addCosts');
+    const preview    = document.getElementById('totalPreview');
+    const txType     = document.getElementById('txTypeSelect').value;
+
+    const area  = parseFloat((areaInput  ? areaInput.value  : '').replace(',', '.')) || 0;
+    const price = parseFloat((priceInput ? priceInput.value : '').replace(',', '.')) || 0;
+    const costs = parseFloat((costsInput ? costsInput.value : '').replace(',', '.')) || 0;
+
+    if (!area || !price) { preview.textContent = '—'; return; }
+
+    const gross = area * price;
+    const net   = txType === 'alis' ? gross + costs : gross - costs;
+    const formatted = net.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const label = txType === 'alis' ? 'Maliyet' : 'Net Gelir';
+    preview.textContent = `₺${formatted}  (${label})`;
+}
+
+// Attach calcTotal to area input too
+document.querySelector('[name="area_decare"]')?.addEventListener('input', calcTotal);
+document.getElementById('txTypeSelect')?.addEventListener('change', calcTotal);
+</script>
+{% endblock %}

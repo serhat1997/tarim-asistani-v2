@@ -1,0 +1,340 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}{% if item %}Envanter Düzenle{% else %}Yeni Envanter{% endif %}{% endblock %}
+{% block page_title %}{% if item %}Envanter Düzenle{% else %}Yeni Envanter Ekle{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-wrap  { max-width: 780px; }
+    .form-card  { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:28px; }
+    .form-section-title {
+        font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.6px;
+        color:var(--sub); margin:20px 0 12px; padding-bottom:6px;
+        border-bottom:1px solid var(--border); display:flex; align-items:center; gap:6px;
+    }
+    .fg2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .fg3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+    .form-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:28px; padding-top:20px; border-top:1px solid var(--border); }
+    .sale-section {
+        background:rgba(37,99,235,.03); border:1px solid rgba(37,99,235,.12);
+        border-radius:12px; padding:18px 20px; margin-top:8px;
+    }
+    .profit-preview {
+        display:flex; align-items:center; justify-content:space-between;
+        background:var(--bg); border:1.5px solid var(--border); border-radius:12px;
+        padding:12px 16px; margin-top:14px; transition:border-color .2s;
+    }
+    .profit-preview.pos { border-color:#16a34a; background:rgba(22,163,74,.04); }
+    .profit-preview.neg { border-color:#dc2626; background:rgba(220,38,38,.04); }
+    .pp-label { font-size:.75rem; font-weight:700; color:var(--sub); text-transform:uppercase; letter-spacing:.4px; }
+    .pp-val   { font-size:1.3rem; font-weight:800; color:var(--sub); }
+    @media(max-width:600px){ .fg2,.fg3{grid-template-columns:1fr;} }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-wrap">
+    <div class="form-card">
+        <form method="post">
+            {% csrf_token %}
+
+            <!-- Temel bilgiler -->
+            <div class="form-section-title"><i class="fas fa-info-circle"></i> Temel Bilgiler</div>
+            <div class="fg2 mb-3">
+                <div>
+                    <label class="form-label">Envanter Adı <span style="color:#dc2626;">*</span></label>
+                    <input type="text" name="name" class="form-control" required autofocus
+                        placeholder="ör. Traktör, 75'lik Boru, Sulama Pompası…"
+                        value="{{ initial.name }}">
+                </div>
+                <div>
+                    <label class="form-label">Model / Marka <span style="font-weight:400;opacity:.6;">(isteğe bağlı)</span></label>
+                    <input type="text" name="model_info" class="form-control"
+                        placeholder="ör. John Deere 5075E, Massey Ferguson…"
+                        value="{{ initial.model_info }}">
+                </div>
+            </div>
+            <div class="fg3 mb-3">
+                <div>
+                    <label class="form-label">Kategori</label>
+                    <select name="category" class="form-select">
+                        {% for val, label in categories %}
+                        <option value="{{ val }}" {% if initial.category == val %}selected{% elif not initial.category and val == 'diger' %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Adet / Miktar <span style="color:#dc2626;">*</span></label>
+                    <input type="text" inputmode="decimal" name="quantity" class="form-control"
+                        value="{{ initial.quantity|default:'1' }}"
+                        id="qty" oninput="onQtyChange()">
+                </div>
+                <div>
+                    <label class="form-label">Birim</label>
+                    <select name="unit" class="form-select">
+                        {% for val, label in units %}
+                        <option value="{{ val }}" {% if initial.unit == val %}selected{% elif not initial.unit and val == 'adet' %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Alış bilgileri -->
+            <div class="form-section-title"><i class="fas fa-arrow-down" style="color:#d97706;"></i> Alış Bilgileri</div>
+            <div class="fg3 mb-3">
+                <div>
+                    <label class="form-label">Birim Alış Fiyatı (₺)</label>
+                    <input type="text" inputmode="decimal" class="form-control"
+                        placeholder="Adet başı fiyat"
+                        id="unitPurchasePrice" oninput="onUnitPurchaseChange()">
+                </div>
+                <div>
+                    <label class="form-label">Toplam Alış Tutarı (₺) <span style="color:#dc2626;">*</span></label>
+                    <input type="text" inputmode="decimal" name="purchase_price" class="form-control" required
+                        placeholder="Toplam alış tutarı"
+                        value="{{ initial.purchase_price }}"
+                        id="purchasePrice" oninput="onTotalPurchaseChange()">
+                </div>
+                <div>
+                    <label class="form-label">Alınış Tarihi <span style="color:#dc2626;">*</span></label>
+                    <input type="date" name="purchase_date" class="form-control" required
+                        value="{{ initial.purchase_date|default:today }}">
+                </div>
+            </div>
+            {% if item and item.source_transaction %}
+            <div style="margin-bottom:14px; padding:10px 14px; background:rgba(217,119,6,.07); border:1px solid rgba(217,119,6,.3); border-radius:10px; font-size:.8rem; color:#92400e;">
+                <i class="fas fa-link me-1"></i>
+                Bu alış için <strong>{{ item.source_transaction.customer.name }}</strong> cari hesabına işlem kaydı mevcut
+                (#{{ item.source_transaction.pk }}, {{ item.source_transaction.date|date:"d.m.Y" }}).
+            </div>
+            {% else %}
+            <div class="fg2 mb-3">
+                <div>
+                    <label class="form-label">
+                        <i class="fas fa-user-tie me-1" style="color:#d97706;"></i>
+                        Cari / Satıcı
+                        <span style="font-weight:400;opacity:.6;">(alış işlemi oluşturmak için)</span>
+                    </label>
+                    <select name="purchase_customer" class="form-select">
+                        <option value="">— Sadece envanter kaydı, işlem oluşturma —</option>
+                        {% for c in customers %}
+                        <option value="{{ c.pk }}" {% if initial.purchase_customer == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="align-self:end; padding-bottom:4px;">
+                    <div style="font-size:.76rem; color:var(--sub); line-height:1.5;">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Cari seçilirse ilgili hesaba alış işlemi oluşturulur ve bakiye güncellenir. Ekstre'de görünür.
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Satış bilgileri -->
+            <div class="form-section-title"><i class="fas fa-arrow-up" style="color:#2563eb;"></i> Satış Bilgileri <span style="font-weight:400;text-transform:none;font-size:.72rem;">(isteğe bağlı — satıldıysa doldurun)</span></div>
+            <div class="sale-section">
+                <div class="fg3 mb-2">
+                    <div>
+                        <label class="form-label">
+                            Satış Adedi
+                            <span style="font-weight:400;opacity:.6;">(kısmi satış için)</span>
+                        </label>
+                        <input type="text" inputmode="decimal" name="sale_quantity" class="form-control"
+                            placeholder="Tümü için boş bırakın"
+                            value="{{ initial.sale_quantity }}"
+                            id="saleQty" oninput="onSaleQtyChange()">
+                    </div>
+                    <div>
+                        <label class="form-label">Birim Satış Fiyatı (₺)</label>
+                        <input type="text" inputmode="decimal" class="form-control"
+                            placeholder="Adet başı fiyat"
+                            id="unitSalePrice" oninput="onUnitSaleChange()">
+                    </div>
+                    <div>
+                        <label class="form-label">Toplam Satış Tutarı (₺)</label>
+                        <input type="text" inputmode="decimal" name="sale_price" class="form-control"
+                            placeholder="Toplam satış tutarı"
+                            value="{{ initial.sale_price }}"
+                            id="salePrice" oninput="onTotalSaleChange()">
+                    </div>
+                </div>
+                <div class="fg2 mb-2">
+                    <div>
+                        <label class="form-label">Satış Tarihi</label>
+                        <input type="date" name="sale_date" class="form-control"
+                            value="{{ initial.sale_date }}">
+                    </div>
+                    <div id="saleQtyInfo" style="align-self:end; padding-bottom:4px; display:none;">
+                        <div style="font-size:.76rem; color:#2563eb; background:rgba(37,99,235,.07); border-radius:8px; padding:7px 10px;">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Kâr hesabı: toplam alışın <span id="saleQtyPct">—</span>'i için.
+                        </div>
+                    </div>
+                </div>
+                {% if item and item.sale_transaction %}
+                <div style="margin-top:12px; padding:10px 14px; background:rgba(34,197,94,.07); border:1px solid rgba(34,197,94,.25); border-radius:10px; font-size:.8rem; color:#166534;">
+                    <i class="fas fa-check-circle me-1"></i>
+                    Bu satış için <strong>{{ item.sale_transaction.customer.name }}</strong> cari hesabına işlem kaydı mevcut.
+                </div>
+                {% else %}
+                <div class="fg2" style="margin-top:12px;">
+                    <div>
+                        <label class="form-label">
+                            <i class="fas fa-user-tie me-1" style="color:#2563eb;"></i>
+                            Cari / Alıcı
+                            <span style="font-weight:400;opacity:.6;">(satış işlemi oluşturmak için)</span>
+                        </label>
+                        <select name="sale_customer" class="form-select">
+                            <option value="">— Sadece envanter kaydı, işlem oluşturma —</option>
+                            {% for c in customers %}
+                            <option value="{{ c.pk }}" {% if initial.sale_customer == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="align-self:end; padding-bottom:4px;">
+                        <div style="font-size:.76rem; color:var(--sub); line-height:1.5;">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Cari seçilirse ilgili hesaba satış işlemi otomatik oluşturulur ve bakiye güncellenir.
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="profit-preview" id="profitPreview">
+                    <div>
+                        <div class="pp-label"><i class="fas fa-calculator me-1"></i> Tahmini Kâr / Zarar</div>
+                        <div style="font-size:.72rem;color:var(--sub);margin-top:2px;" id="profitFormula">Satış tutarı girildiğinde hesaplanır</div>
+                    </div>
+                    <div class="pp-val" id="profitVal">—</div>
+                </div>
+            </div>
+
+            <!-- Notlar -->
+            <div class="form-section-title" style="margin-top:20px;"><i class="fas fa-sticky-note"></i> Notlar</div>
+            <div class="mb-3">
+                <textarea name="notes" class="form-control" rows="2"
+                    placeholder="Envanter hakkında ek notlar…">{{ initial.notes }}</textarea>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'inventory_list' %}" class="btn-o"><i class="fas fa-times"></i> İptal</a>
+                <button type="submit" class="btn-g">
+                    <i class="fas fa-save me-1"></i>
+                    {% if item %}Güncelle{% else %}Kaydet{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function parseVal(id) {
+    const el = document.getElementById(id);
+    if (!el || !el.value.trim()) return null;
+    return parseFloat(el.value.replace(/\./g,'').replace(/,/g,'.')) || null;
+}
+function fmtTR(n) {
+    return n.toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function setCalc(id, n) {
+    const el = document.getElementById(id);
+    if (el && n !== null && !isNaN(n)) el.value = fmtTR(n);
+}
+
+function getQty()     { return parseVal('qty')     || 1; }
+function getSaleQty() { return parseVal('saleQty'); }
+function getEffSaleQty() { return getSaleQty() || getQty(); }
+
+function onQtyChange() {
+    const upUnit = parseVal('unitPurchasePrice');
+    if (upUnit !== null) setCalc('purchasePrice', upUnit * getQty());
+    calcProfit();
+}
+function onSaleQtyChange() {
+    const usp = parseVal('unitSalePrice');
+    if (usp !== null) setCalc('salePrice', usp * getEffSaleQty());
+    updateSaleQtyInfo();
+    calcProfit();
+}
+
+function onUnitPurchaseChange() {
+    const unit = parseVal('unitPurchasePrice');
+    if (unit !== null) setCalc('purchasePrice', unit * getQty());
+    calcProfit();
+}
+function onTotalPurchaseChange() {
+    const total = parseVal('purchasePrice');
+    const qty   = getQty();
+    if (total !== null && qty > 0) setCalc('unitPurchasePrice', total / qty);
+    calcProfit();
+}
+function onUnitSaleChange() {
+    const unit = parseVal('unitSalePrice');
+    if (unit !== null) setCalc('salePrice', unit * getEffSaleQty());
+    calcProfit();
+}
+function onTotalSaleChange() {
+    const total  = parseVal('salePrice');
+    const effQty = getEffSaleQty();
+    if (total !== null && effQty > 0) setCalc('unitSalePrice', total / effQty);
+    calcProfit();
+}
+
+function updateSaleQtyInfo() {
+    const saleQty = getSaleQty();
+    const totalQty = getQty();
+    const infoEl  = document.getElementById('saleQtyInfo');
+    const pctEl   = document.getElementById('saleQtyPct');
+    if (saleQty !== null && totalQty > 0 && saleQty < totalQty) {
+        const pct = ((saleQty / totalQty) * 100).toFixed(1);
+        pctEl.textContent = '%' + pct + ' (' + saleQty.toLocaleString('tr-TR') + ' ' +
+            '/ ' + totalQty.toLocaleString('tr-TR') + ')';
+        infoEl.style.display = 'block';
+    } else {
+        infoEl.style.display = 'none';
+    }
+}
+
+function calcProfit() {
+    const purchase = parseVal('purchasePrice');
+    const sale     = parseVal('salePrice');
+    const totalQty = getQty();
+    const saleQty  = getSaleQty();
+    const preview  = document.getElementById('profitPreview');
+    const valEl    = document.getElementById('profitVal');
+    const fmlaEl   = document.getElementById('profitFormula');
+    if (purchase === null || sale === null) {
+        valEl.textContent  = '—';
+        fmlaEl.textContent = 'Satış tutarı girildiğinde hesaplanır';
+        valEl.style.color  = 'var(--sub)';
+        preview.className  = 'profit-preview';
+        return;
+    }
+    // Kısmi satışta orantılı alış maliyeti
+    let effectiveCost = purchase;
+    if (saleQty !== null && totalQty > 0 && saleQty < totalQty) {
+        effectiveCost = (purchase / totalQty) * saleQty;
+    }
+    const profit = sale - effectiveCost;
+    const pct    = effectiveCost ? ((profit / effectiveCost) * 100) : 0;
+    valEl.textContent  = (profit >= 0 ? '+' : '') + '₺' + fmtTR(profit);
+    fmlaEl.textContent = '₺' + fmtTR(sale) + ' − ₺' + fmtTR(effectiveCost) + ' · %' + fmtTR(pct);
+    valEl.style.color  = profit >= 0 ? '#16a34a' : '#dc2626';
+    preview.className  = 'profit-preview ' + (profit >= 0 ? 'pos' : 'neg');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const total = parseVal('purchasePrice');
+    if (total !== null) setCalc('unitPurchasePrice', total / getQty());
+    const sTotal = parseVal('salePrice');
+    if (sTotal !== null) setCalc('unitSalePrice', sTotal / getEffSaleQty());
+    updateSaleQtyInfo();
+    calcProfit();
+});
+</script>
+{% endblock %}

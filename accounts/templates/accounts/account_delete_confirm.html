@@ -1,0 +1,74 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Hesabı Sil{% endblock %}
+{% block page_title %}Hesap Ayarları{% endblock %}
+
+{% block extra_css %}
+<style>
+    .danger-card {
+        max-width: 480px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+    }
+    .danger-header {
+        background: linear-gradient(135deg,#991b1b,#dc2626);
+        padding: 28px 28px 22px;
+        display: flex; align-items: center; gap: 14px;
+    }
+    .danger-header-icon {
+        width: 48px; height: 48px; border-radius: 12px;
+        background: rgba(255,255,255,.15);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem; color: #fff; flex-shrink: 0;
+    }
+    .danger-header-title { font-size: 1.1rem; font-weight: 700; color: #fff; }
+    .danger-header-sub { font-size: .83rem; color: rgba(255,255,255,.75); margin-top: 2px; }
+    .danger-body { padding: 26px 28px; }
+    .warn-box {
+        background: rgba(239,68,68,.07);
+        border: 1px solid rgba(239,68,68,.2);
+        border-radius: 10px;
+        padding: 14px 16px;
+        font-size: .87rem;
+        color: #991b1b;
+        margin-bottom: 22px;
+        display: flex; gap: 10px; align-items: flex-start;
+    }
+    [data-theme="dark"] .warn-box { color: #fca5a5; }
+    .confirm-label { font-size: .82rem; font-weight: 600; color: var(--sub); margin-bottom: 6px; }
+    .form-actions { display: flex; gap: 10px; margin-top: 20px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="danger-card">
+    <div class="danger-header">
+        <div class="danger-header-icon"><i class="fas fa-user-times"></i></div>
+        <div>
+            <div class="danger-header-title">Hesabı Kalıcı Sil</div>
+            <div class="danger-header-sub">{{ logged_user_name }}</div>
+        </div>
+    </div>
+    <div class="danger-body">
+        <div class="warn-box">
+            <i class="fas fa-exclamation-triangle" style="flex-shrink:0;margin-top:1px;"></i>
+            <div><strong>Bu işlem geri alınamaz.</strong> Hesabınıza ait tüm veriler kalıcı olarak silinecektir.</div>
+        </div>
+        <div class="confirm-label">Onaylamak için aşağıya <strong>SIL</strong> yazın:</div>
+        <form method="post">
+            {% csrf_token %}
+            <input type="text" name="confirm" class="form-control mb-1" placeholder="SIL" autocomplete="off" required>
+            <div style="font-size:.75rem;color:var(--sub);margin-bottom:18px;">Büyük harfle tam olarak <code>SIL</code> yazmanız gerekmektedir.</div>
+            <div class="form-actions">
+                <a href="{% url 'dashboard' %}" class="btn-o" style="flex:1;justify-content:center;">
+                    <i class="fas fa-arrow-left"></i> Vazgeç
+                </a>
+                <button type="submit" style="flex:1;justify-content:center;background:linear-gradient(135deg,#991b1b,#dc2626);color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:.87rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                    <i class="fas fa-trash"></i> Hesabımı Sil
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

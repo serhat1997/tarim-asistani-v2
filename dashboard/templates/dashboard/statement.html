@@ -1,0 +1,248 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Ekstre{% endblock %}
+{% block page_title %}Ekstre{% endblock %}
+
+{% block topbar_right %}
+<a href="{% url 'transaction_create' %}" class="btn-g"><i class="fas fa-plus"></i> İşlem Ekle</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stmt-filter {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 18px 22px;
+        margin-bottom: 18px;
+        display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+    }
+    .stmt-filter-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 200px; }
+    .stmt-filter-group label { font-size: .75rem; font-weight: 700; color: var(--sub); letter-spacing: .3px; }
+
+    /* Summary */
+    .summary-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 12px; }
+    .summary-card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 14px 16px;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .s-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: .9rem; flex-shrink: 0; }
+    .s-icon.sale     { background: rgba(59,130,246,.1);  color: #2563eb; }
+    .s-icon.purchase { background: rgba(245,158,11,.1);  color: #d97706; }
+    .s-icon.received { background: rgba(34,197,94,.1);   color: #16a34a; }
+    .s-icon.paid     { background: rgba(239,68,68,.1);   color: #dc2626; }
+    .s-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--sub); margin-bottom: 2px; }
+    .s-val   { font-size: 1rem; font-weight: 800; }
+    .s-val.blue { color: #2563eb; }
+    .s-val.orange { color: #d97706; }
+    .s-val.green  { color: #16a34a; }
+    .s-val.red    { color: #dc2626; }
+
+    .net-card {
+        background: var(--surface); border: 2px solid var(--border);
+        border-radius: var(--radius); padding: 16px 22px;
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 18px; gap: 12px; flex-wrap: wrap;
+    }
+    .net-label { font-size: .78rem; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: .5px; }
+    .net-formula { font-size: .8rem; color: var(--sub); margin-top: 3px; }
+    .net-val { font-size: 1.5rem; font-weight: 800; }
+    .net-val.pos { color: #16a34a; }
+    .net-val.neg { color: #dc2626; }
+
+    /* Table badges */
+    .bp-sale     { background: rgba(59,130,246,.1);  color: #2563eb; }
+    .bp-purchase { background: rgba(245,158,11,.1);  color: #d97706; }
+    .bp-received { background: rgba(34,197,94,.1);   color: #16a34a; }
+    .bp-paid     { background: rgba(239,68,68,.1);   color: #dc2626; }
+
+    .bal-cell { font-size: .82rem; font-weight: 700; white-space: nowrap; }
+    .bal-cell.pos { color: #16a34a; }
+    .bal-cell.neg { color: #dc2626; }
+
+    .empty-state { text-align:center; padding:60px 20px; color:var(--sub); }
+    .empty-state i { font-size:3rem; margin-bottom:14px; opacity:.3; display:block; }
+
+    @media (max-width: 768px) { .summary-row { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 480px) { .summary-row { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Cari Seçici -->
+<div class="stmt-filter">
+    <div class="stmt-filter-group">
+        <label><i class="fas fa-address-book me-1"></i>Cari Seç</label>
+        <select class="form-select" id="customerSelect" onchange="applyFilter()">
+            <option value="">— Cari seçin —</option>
+            {% for c in customers %}
+            <option value="{{ c.id }}" {% if selected_customer and selected_customer.id == c.id %}selected{% endif %}>
+                {{ c.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    {% if selected_customer %}
+    <a href="{% url 'statement' %}" class="btn-o" style="padding:9px 14px;font-size:.84rem;white-space:nowrap;">
+        <i class="fas fa-times"></i> Temizle
+    </a>
+    {% endif %}
+</div>
+
+{% if selected_customer %}
+
+<!-- Özet: 4 mini kart -->
+<div class="summary-row">
+    <div class="summary-card">
+        <div class="s-icon sale"><i class="fas fa-arrow-up"></i></div>
+        <div>
+            <div class="s-label">Satışlar</div>
+            <div class="s-val blue">₺{{ summary.sales }}</div>
+        </div>
+    </div>
+    <div class="summary-card">
+        <div class="s-icon purchase"><i class="fas fa-arrow-down"></i></div>
+        <div>
+            <div class="s-label">Alışlar</div>
+            <div class="s-val orange">₺{{ summary.purchases }}</div>
+        </div>
+    </div>
+    <div class="summary-card">
+        <div class="s-icon received"><i class="fas fa-hand-holding-usd"></i></div>
+        <div>
+            <div class="s-label">Tahsilat</div>
+            <div class="s-val green">₺{{ summary.received }}</div>
+        </div>
+    </div>
+    <div class="summary-card">
+        <div class="s-icon paid"><i class="fas fa-money-bill-wave"></i></div>
+        <div>
+            <div class="s-label">Ödeme</div>
+            <div class="s-val red">₺{{ summary.paid_out }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Net Bakiye -->
+<div class="net-card">
+    <div>
+        <div class="net-label"><i class="fas fa-balance-scale me-1"></i>Net Bakiye</div>
+        <div class="net-formula">Satış − Alış − Tahsilat + Ödeme</div>
+    </div>
+    <div class="net-val {% if summary.net_raw >= 0 %}pos{% else %}neg{% endif %}">
+        {% if summary.net_raw < 0 %}−{% endif %}₺{{ summary.net }}
+        <span style="font-size:.75rem;font-weight:500;margin-left:6px;opacity:.6;">
+            {% if summary.net_raw >= 0 %}Cari borçlu{% else %}Biz borçluyuz{% endif %}
+        </span>
+    </div>
+</div>
+
+<!-- Ekstre Tablosu -->
+<div class="surface">
+    <div class="card-header-bar">
+        <div>
+            <div class="ch-title">
+                <i class="fas fa-file-alt me-2" style="color:var(--primary-light);"></i>
+                {{ selected_customer.name }} — Ekstre
+            </div>
+            <div style="font-size:.77rem;color:var(--sub);margin-top:2px;">{{ entries|length }} kayıt</div>
+        </div>
+        <a href="{% url 'customer_payment_create' %}?customer={{ selected_customer.id }}" class="btn-o" style="padding:7px 13px;font-size:.82rem;">
+            <i class="fas fa-plus"></i> Ödeme Ekle
+        </a>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="dt">
+            <thead>
+                <tr>
+                    <th>Tarih</th>
+                    <th>Tür</th>
+                    <th>Detay</th>
+                    <th>Tutar</th>
+                    <th>Bakiye</th>
+                    <th>Ref / Belge No</th>
+                    <th>Açıklama</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in entries %}
+                <tr>
+                    <td style="font-size:.82rem;color:var(--sub);white-space:nowrap;">{{ e.date }}</td>
+                    <td>
+                        {% if e.kind == 'sale' %}
+                            <span class="bp bp-sale"><i class="fas fa-arrow-up"></i> Satış</span>
+                        {% elif e.kind == 'purchase' %}
+                            <span class="bp bp-purchase"><i class="fas fa-arrow-down"></i> Alış</span>
+                        {% elif e.kind == 'payment_alindi' %}
+                            <span class="bp bp-received"><i class="fas fa-hand-holding-usd"></i> Tahsilat</span>
+                        {% else %}
+                            <span class="bp bp-paid"><i class="fas fa-money-bill-wave"></i> Ödeme</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:.85rem;">{{ e.detail }}</td>
+                    <td>
+                        {% if e.kind == 'sale' or e.kind == 'payment_odendi' %}
+                            <span style="color:#2563eb;font-weight:700;">+₺{{ e.amount }}</span>
+                        {% else %}
+                            <span style="color:#dc2626;font-weight:700;">−₺{{ e.amount }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="bal-cell {% if e.balance_pos %}pos{% else %}neg{% endif %}">
+                            {% if not e.balance_pos %}−{% endif %}₺{{ e.balance }}
+                        </span>
+                    </td>
+                    <td style="font-family:monospace;font-size:.8rem;color:var(--sub);">{{ e.reference_no|default:'—' }}</td>
+                    <td style="color:var(--sub);font-size:.82rem;">{{ e.description|default:'—'|truncatewords:8 }}</td>
+                    <td>
+                        {% if e.delete_type == 'transaction' %}
+                        <button class="btn-danger-soft" style="padding:5px 10px;font-size:.78rem;"
+                            onclick="confirmDelete('{% url 'transaction_delete' e.pk %}', '{{ e.label }} kaydı silinecek.', {next:'{% url 'statement' %}?customer={{ selected_customer.id }}'})">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        {% else %}
+                        <button class="btn-danger-soft" style="padding:5px 10px;font-size:.78rem;"
+                            onclick="confirmDelete('{% url 'customer_payment_delete' e.pk %}', '{{ e.label }} kaydı silinecek.', {next:'{% url 'statement' %}?customer={{ selected_customer.id }}'})">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            Bu cariye ait henüz kayıt bulunmamaktadır.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+
+<div class="surface">
+    <div class="empty-state" style="padding:80px 20px;">
+        <i class="fas fa-address-book"></i>
+        <div style="font-size:1rem;font-weight:600;margin-bottom:6px;">Ekstre görüntülemek için cari seçin</div>
+        <div style="font-size:.84rem;color:var(--sub);">Yukarıdan bir cari seçtiğinizde tüm işlemler, ödemeler ve bakiye görünecektir.</div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function applyFilter() {
+    const val = document.getElementById('customerSelect').value;
+    window.location.href = val
+        ? '{% url "statement" %}?customer=' + val
+        : '{% url "statement" %}';
+}
+</script>
+{% endblock %}

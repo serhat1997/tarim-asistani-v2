@@ -1,0 +1,79 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Yeni Ödeme Planı{% endblock %}
+{% block page_title %}Yeni Ödeme Planı{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-wrap { max-width: 760px; }
+    .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
+    .form-card-title { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+    .form-card-sub { font-size: .83rem; color: var(--sub); margin-bottom: 24px; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
+    @media (max-width:640px) { .field-row { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-wrap">
+    <div class="form-card">
+        <div class="form-card-title"><i class="fas fa-wallet me-2" style="color:var(--primary-light);"></i>Yeni Ödeme Planı</div>
+        <div class="form-card-sub">Cari, taksit, tutar ve vade bilgilerini ekleyerek ödeme planı oluşturun.</div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="field-row mb-3">
+                <div>
+                    <label class="form-label">Cari</label>
+                    <select name="customer" class="form-select" required>
+                        <option value="">— Cari seçin —</option>
+                        {% for c in customers %}
+                        <option value="{{ c.id }}" {% if form_data.customer|default:'' == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Plan Türü</label>
+                    <select name="plan_type" class="form-select" required>
+                        <option value="">— Seçin —</option>
+                        <option value="monthly" {% if form_data.plan_type == 'monthly' %}selected{% endif %}>Aylık</option>
+                        <option value="yearly"  {% if form_data.plan_type == 'yearly'  %}selected{% endif %}>Yıllık</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field-row mb-3">
+                <div>
+                    <label class="form-label">Ödeme Kategorisi</label>
+                    <select name="payment_category" class="form-select" required>
+                        <option value="">— Seçin —</option>
+                        <option value="tarla_kira" {% if form_data.payment_category == 'tarla_kira' %}selected{% endif %}>Yıllık Tarla Kira</option>
+                        <option value="kredi"      {% if form_data.payment_category == 'kredi'      %}selected{% endif %}>Kredi Ödemesi</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Taksit Sayısı</label>
+                    <input type="number" min="1" name="installments" class="form-control" value="{{ form_data.installments|default:'1' }}" required>
+                </div>
+            </div>
+            <div class="field-row mb-3">
+                <div>
+                    <label class="form-label">Tutar (₺)</label>
+                    <input type="text" inputmode="decimal" name="amount" class="form-control" value="{{ form_data.amount|default:'' }}" placeholder="0,00" required>
+                </div>
+                <div>
+                    <label class="form-label">Vade Tarihi</label>
+                    <input type="date" name="due_date" class="form-control" value="{{ form_data.due_date|default:'' }}">
+                </div>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Açıklama</label>
+                <textarea name="description" class="form-control" placeholder="Ödeme planına not ekleyin…">{{ form_data.description|default:'' }}</textarea>
+            </div>
+            <div class="form-actions">
+                <a href="{% url 'payments' %}" class="btn-o"><i class="fas fa-times"></i> İptal</a>
+                <button type="submit" class="btn-g"><i class="fas fa-save"></i> Kaydet</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

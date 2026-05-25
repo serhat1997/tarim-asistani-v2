@@ -1,0 +1,225 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Cariler{% endblock %}
+{% block page_title %}Cariler{% endblock %}
+
+{% block topbar_right %}
+<a href="{% url 'customer_create' %}" class="btn-g"><i class="fas fa-plus"></i> Yeni Cari</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cari-filter {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 18px 22px;
+        margin-bottom: 18px;
+        display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+    }
+    .cari-filter-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 200px; }
+    .cari-filter-group label { font-size: .75rem; font-weight: 700; color: var(--sub); letter-spacing: .3px; }
+
+    /* Info panel */
+    .cari-panel {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); margin-bottom: 18px; overflow: hidden;
+    }
+    .cari-panel-header {
+        display: flex; align-items: center; gap: 16px;
+        padding: 20px 24px; border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+    }
+    .cari-big-avatar {
+        width: 52px; height: 52px; border-radius: 14px;
+        background: linear-gradient(135deg, var(--primary), var(--primary-light));
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.4rem; font-weight: 800; color: #fff; flex-shrink: 0;
+    }
+    .cari-panel-name { font-size: 1.1rem; font-weight: 800; }
+    .cari-panel-sub  { font-size: .8rem; color: var(--sub); margin-top: 2px; }
+    .cari-panel-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .info-grid-4 {
+        display: grid; grid-template-columns: repeat(4, 1fr);
+        gap: 0; border-top: 1px solid var(--border);
+    }
+    .info-cell {
+        padding: 16px 20px; border-right: 1px solid var(--border);
+    }
+    .info-cell:last-child { border-right: none; }
+    .info-cell-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--sub); margin-bottom: 5px; }
+    .info-cell-val   { font-size: .9rem; font-weight: 600; color: var(--text); word-break: break-word; }
+    .info-cell-val.muted { font-weight: 400; color: var(--sub); }
+    .bal-pos { color: #16a34a; font-weight: 800; font-size: 1rem; }
+    .bal-neg { color: #dc2626; font-weight: 800; font-size: 1rem; }
+
+    /* Table */
+    .cari-avatar {
+        width: 34px; height: 34px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: .82rem; flex-shrink: 0; color: #fff;
+        background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    }
+    .cari-row { display: flex; align-items: center; gap: 10px; }
+    .empty-state { text-align:center; padding:60px 20px; color:var(--sub); }
+    .empty-state i { font-size:3rem; margin-bottom:14px; opacity:.3; display:block; }
+
+    @media (max-width:768px) { .info-grid-4 { grid-template-columns: repeat(2,1fr); } .info-cell { border-right: none; border-bottom: 1px solid var(--border); } }
+    @media (max-width:480px) { .info-grid-4 { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Seçici -->
+<div class="cari-filter">
+    <div class="cari-filter-group">
+        <label><i class="fas fa-address-book me-1"></i>Cari Seç</label>
+        <select class="form-select" id="customerSelect" onchange="applyFilter()">
+            <option value="">— Cari seçin —</option>
+            {% for c in customers %}
+            <option value="{{ c.id }}" {% if selected_customer and selected_customer.id == c.id %}selected{% endif %}>
+                {{ c.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    {% if selected_customer %}
+    <a href="{% url 'customer_list' %}" class="btn-o" style="padding:9px 14px;font-size:.84rem;white-space:nowrap;">
+        <i class="fas fa-times"></i> Temizle
+    </a>
+    {% endif %}
+</div>
+
+{% if selected_customer %}
+
+<!-- Cari Bilgi Paneli -->
+<div class="cari-panel">
+    <div class="cari-panel-header">
+        <div class="cari-big-avatar">{{ selected_customer.name|first|upper }}</div>
+        <div>
+            <div class="cari-panel-name">{{ selected_customer.name }}</div>
+            <div class="cari-panel-sub">
+                {% if selected_customer.tc_vkn %}TC / VKN: {{ selected_customer.tc_vkn }}{% else %}TC / VKN girilmemiş{% endif %}
+            </div>
+        </div>
+        <div class="cari-panel-actions">
+            <a href="{% url 'customer_edit' selected_customer.pk %}" class="btn-o" style="padding:8px 14px;font-size:.84rem;">
+                <i class="fas fa-edit"></i> Düzenle
+            </a>
+            <a href="{% url 'statement' %}?customer={{ selected_customer.id }}" class="btn-g" style="padding:8px 14px;font-size:.84rem;">
+                <i class="fas fa-file-alt"></i> Ekstre
+            </a>
+            <button class="btn-danger-soft" style="padding:8px 14px;font-size:.84rem;"
+                onclick="confirmDelete('{% url 'customer_delete' selected_customer.pk %}', '{{ selected_customer.name }} adlı cari ve tüm ilişkili kayıtlar silinecek.')">
+                <i class="fas fa-trash-alt"></i> Sil
+            </button>
+        </div>
+    </div>
+    <div class="info-grid-4">
+        <div class="info-cell">
+            <div class="info-cell-label"><i class="fas fa-phone me-1"></i>Telefon</div>
+            <div class="info-cell-val {% if not selected_customer.phone %}muted{% endif %}">
+                {{ selected_customer.phone|default:'—' }}
+            </div>
+        </div>
+        <div class="info-cell">
+            <div class="info-cell-label"><i class="fas fa-envelope me-1"></i>E-posta</div>
+            <div class="info-cell-val {% if not selected_customer.email %}muted{% endif %}">
+                {{ selected_customer.email|default:'—' }}
+            </div>
+        </div>
+        <div class="info-cell">
+            <div class="info-cell-label"><i class="fas fa-map-marker-alt me-1"></i>Adres</div>
+            <div class="info-cell-val {% if not selected_customer.address %}muted{% endif %}">
+                {{ selected_customer.address|default:'—' }}
+            </div>
+        </div>
+        <div class="info-cell">
+            <div class="info-cell-label"><i class="fas fa-wallet me-1"></i>Bakiye</div>
+            <div>
+                {% if selected_customer.balance >= 0 %}
+                    <span class="bal-pos">₺{{ selected_customer.balance|tr_num }}</span>
+                {% else %}
+                    <span class="bal-neg">₺{{ selected_customer.balance|tr_num }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+
+<!-- Cari Listesi -->
+<div class="surface">
+    <div style="overflow-x:auto;">
+        <table class="dt">
+            <thead>
+                <tr>
+                    <th>Cari</th>
+                    <th>TC / VKN</th>
+                    <th>Telefon</th>
+                    <th>E-posta</th>
+                    <th>Bakiye</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in customers %}
+                <tr style="cursor:pointer;" onclick="selectCustomer('{{ c.id }}')">
+                    <td>
+                        <div class="cari-row">
+                            <div class="cari-avatar">{{ c.name|first|upper }}</div>
+                            <strong>{{ c.name }}</strong>
+                        </div>
+                    </td>
+                    <td style="color:var(--sub);font-size:.83rem;font-family:monospace;">{{ c.tc_vkn|default:'—' }}</td>
+                    <td style="color:var(--sub);">{{ c.phone|default:'—' }}</td>
+                    <td style="color:var(--sub);font-size:.83rem;">{{ c.email|default:'—' }}</td>
+                    <td>
+                        {% if c.balance >= 0 %}
+                            <span style="color:#16a34a;font-weight:700;">₺{{ c.balance|tr_num }}</span>
+                        {% else %}
+                            <span style="color:#dc2626;font-weight:700;">₺{{ c.balance|tr_num }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn-info-soft" onclick="event.stopPropagation(); selectCustomer('{{ c.id }}')">
+                            <i class="fas fa-eye"></i> Seç
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <i class="fas fa-address-book"></i>
+                            Henüz cari eklenmedi.
+                            <div style="margin-top:12px;">
+                                <a href="{% url 'customer_create' %}" class="btn-g" style="display:inline-flex;">
+                                    <i class="fas fa-plus"></i> İlk Cariyi Ekle
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function applyFilter() {
+    const val = document.getElementById('customerSelect').value;
+    window.location.href = val
+        ? '{% url "customer_list" %}?customer=' + val
+        : '{% url "customer_list" %}';
+}
+function selectCustomer(id) {
+    window.location.href = '{% url "customer_list" %}?customer=' + id;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,145 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Cari Ödeme Ekle{% endblock %}
+{% block page_title %}Cari Ödeme Ekle{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-wrap { max-width: 720px; }
+    .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
+    .form-card-title { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+    .form-card-sub { font-size: .83rem; color: var(--sub); margin-bottom: 24px; }
+    .field-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
+
+    .dir-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .dir-opt { display: none; }
+    .dir-lbl {
+        border: 2px solid var(--border); border-radius: 12px;
+        padding: 14px 18px; cursor: pointer;
+        display: flex; align-items: center; gap: 12px;
+        font-weight: 600; font-size: .9rem; color: var(--sub);
+        transition: border-color .15s, background .15s;
+    }
+    .dir-lbl .dir-icon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
+    #dir-alindi:checked + .dir-lbl { background: rgba(34,197,94,.08); border-color: #16a34a; color: #14532d; }
+    #dir-odendi:checked + .dir-lbl { background: rgba(239,68,68,.08); border-color: #dc2626; color: #7f1d1d; }
+    .lbl-alindi .dir-icon { background: rgba(34,197,94,.12); color: #16a34a; }
+    .lbl-odendi .dir-icon { background: rgba(239,68,68,.12); color: #dc2626; }
+
+    @media (max-width:640px) { .field-2 { grid-template-columns: 1fr; } .dir-selector { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-wrap">
+    <div class="form-card">
+        <div class="form-card-title"><i class="fas fa-money-bill-wave me-2" style="color:var(--primary-light);"></i>Cari Ödeme Kaydı</div>
+        <div class="form-card-sub">Cariden alınan veya cariye yapılan nakit, havale, EFT, çek vb. ödemeleri kaydedin.</div>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <!-- Yön seçimi -->
+            <div class="mb-4">
+                <label class="form-label" style="display:block;margin-bottom:8px;">Ödeme Yönü</label>
+                <div class="dir-selector">
+                    <div>
+                        <input class="dir-opt" type="radio" name="direction" id="dir-alindi" value="alindi"
+                            {% if form_data.direction == 'alindi' %}checked{% endif %} required>
+                        <label class="dir-lbl lbl-alindi" for="dir-alindi">
+                            <div class="dir-icon"><i class="fas fa-arrow-down"></i></div>
+                            <div>
+                                <div>Alındı</div>
+                                <div style="font-size:.74rem;font-weight:400;opacity:.7;">Cari bize ödedi</div>
+                            </div>
+                        </label>
+                    </div>
+                    <div>
+                        <input class="dir-opt" type="radio" name="direction" id="dir-odendi" value="odendi"
+                            {% if form_data.direction == 'odendi' %}checked{% endif %}>
+                        <label class="dir-lbl lbl-odendi" for="dir-odendi">
+                            <div class="dir-icon"><i class="fas fa-arrow-up"></i></div>
+                            <div>
+                                <div>Ödendi</div>
+                                <div style="font-size:.74rem;font-weight:400;opacity:.7;">Biz cariye ödedik</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="field-2 mb-3">
+                <div>
+                    <label class="form-label">Cari</label>
+                    <select name="customer" class="form-select" required>
+                        <option value="">— Cari seçin —</option>
+                        {% for c in customers %}
+                        <option value="{{ c.id }}" {% if form_data.customer == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Ödeme Türü</label>
+                    <select name="payment_type" class="form-select" required>
+                        <option value="">— Seçin —</option>
+                        <option value="nakit"       {% if form_data.payment_type == 'nakit'       %}selected{% endif %}>Nakit</option>
+                        <option value="havale"      {% if form_data.payment_type == 'havale'      %}selected{% endif %}>Havale</option>
+                        <option value="eft"         {% if form_data.payment_type == 'eft'         %}selected{% endif %}>EFT</option>
+                        <option value="cek"         {% if form_data.payment_type == 'cek'         %}selected{% endif %}>Çek</option>
+                        <option value="kredi_karti" {% if form_data.payment_type == 'kredi_karti' %}selected{% endif %}>Kredi Kartı</option>
+                        <option value="diger"       {% if form_data.payment_type == 'diger'       %}selected{% endif %}>Diğer</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="field-2 mb-3">
+                <div>
+                    <label class="form-label">Tutar (₺)</label>
+                    <input type="text" inputmode="decimal" name="amount" id="amount" class="form-control"
+                        value="{{ form_data.amount|default:'' }}" placeholder="0,00" required>
+                </div>
+                <div>
+                    <label class="form-label">Tarih</label>
+                    <input type="date" name="date" class="form-control"
+                        value="{{ form_data.date|default:'' }}" required>
+                </div>
+            </div>
+
+            <div class="field-2 mb-3">
+                <div>
+                    <label class="form-label">Referans / Belge No <span style="font-weight:400;opacity:.6;">(isteğe bağlı)</span></label>
+                    <input type="text" name="reference_no" class="form-control"
+                        value="{{ form_data.reference_no|default:'' }}" placeholder="Çek no, havale ref…">
+                </div>
+                <div>
+                    <label class="form-label">Açıklama</label>
+                    <input type="text" name="description" class="form-control"
+                        value="{{ form_data.description|default:'' }}" placeholder="Not…">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'payments' %}" class="btn-o"><i class="fas fa-times"></i> İptal</a>
+                <button type="submit" class="btn-g"><i class="fas fa-save"></i> Kaydet</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const amountInp = document.getElementById('amount');
+function fmtNum(el) {
+    let v = el.value.replace(/\./g,'').replace(/,/g,'.');
+    if (!v) return;
+    const [i, d] = v.split('.');
+    const fi = i.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+    el.value = d !== undefined ? `${fi},${d}` : fi;
+}
+amountInp.addEventListener('blur', () => fmtNum(amountInp));
+document.querySelector('form').addEventListener('submit', function() {
+    amountInp.value = amountInp.value.replace(/\./g,'').replace(/,/g,'.');
+});
+</script>
+{% endblock %}

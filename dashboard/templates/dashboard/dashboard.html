@@ -1,0 +1,162 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Ana Sayfa{% endblock %}
+{% block page_title %}Ana Sayfa{% endblock %}
+
+{% block topbar_right %}
+<a href="{% url 'transaction_create' %}" class="btn-g"><i class="fas fa-plus"></i> İşlem Ekle</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .welcome { margin-bottom: 24px; }
+    .welcome h1 { font-size: 1.6rem; font-weight: 800; color: var(--text); }
+    .welcome p { font-size: .88rem; color: var(--sub); margin-top: 3px; }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 24px; }
+    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; display: flex; align-items: center; gap: 16px; }
+    .kpi-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; flex-shrink: 0; }
+    .kpi-label { font-size: .75rem; font-weight: 600; color: var(--sub); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px; }
+    .kpi-value { font-size: 1.55rem; font-weight: 800; letter-spacing: -.5px; }
+    .kpi-green .kpi-icon { background: rgba(34,197,94,.1); color: #16a34a; }
+    .kpi-red .kpi-icon { background: rgba(239,68,68,.1); color: #dc2626; }
+    .kpi-blue .kpi-icon { background: rgba(99,102,241,.1); color: #4f46e5; }
+    .kpi-green .kpi-value { color: #16a34a; }
+    .kpi-red .kpi-value { color: #dc2626; }
+
+    .action-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+    .ac {
+        border-radius: var(--radius); padding: 22px;
+        color: #fff; text-decoration: none;
+        display: flex; flex-direction: column;
+        min-height: 148px;
+        transition: transform .2s, box-shadow .2s;
+    }
+    .ac:hover { transform: translateY(-4px); box-shadow: 0 14px 32px rgba(0,0,0,.14); color: #fff; }
+    .ac-ico { font-size: 1.7rem; margin-bottom: auto; opacity: .9; }
+    .ac-title { font-size: 1rem; font-weight: 700; }
+    .ac-sub { font-size: .76rem; opacity: .78; margin-top: 3px; }
+    .ac-ekstre  { background: linear-gradient(135deg,#1b4332,#2d6a4f); }
+    .ac-purchase{ background: linear-gradient(135deg,#92400e,#d97706); }
+    .ac-sale    { background: linear-gradient(135deg,#1e3a8a,#3b82f6); }
+    .ac-payment { background: linear-gradient(135deg,#4c1d95,#8b5cf6); }
+
+    .recent-list { list-style: none; }
+    .recent-item {
+        display: flex; align-items: center; gap: 12px;
+        padding: 11px 20px;
+        border-bottom: 1px solid var(--border);
+        transition: background .12s;
+    }
+    .recent-item:last-child { border-bottom: none; }
+    .recent-item:hover { background: var(--bg); }
+    .ri-dot {
+        width: 32px; height: 32px; border-radius: 9px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: .78rem; flex-shrink: 0;
+    }
+    .ri-dot.sale { background: rgba(59,130,246,.1); color: #2563eb; }
+    .ri-dot.purchase { background: rgba(245,158,11,.1); color: #d97706; }
+    .ri-name { font-size: .87rem; font-weight: 600; flex: 1; }
+    .ri-sub { font-size: .74rem; color: var(--sub); margin-top: 1px; }
+    .ri-amount { font-size: .9rem; font-weight: 700; white-space: nowrap; }
+    .ri-amount.sale { color: #16a34a; }
+    .ri-amount.purchase { color: #dc2626; }
+
+    @media (max-width:900px) {
+        .kpi-grid { grid-template-columns: 1fr; }
+        .action-grid { grid-template-columns: repeat(2,1fr); }
+    }
+    @media (max-width:480px) { .action-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="welcome">
+    <h1>{{ greeting }}</h1>
+    <p>İşletmenizin güncel finansal özeti aşağıda.</p>
+</div>
+
+<div class="kpi-grid">
+    <div class="kpi-card kpi-green">
+        <div class="kpi-icon"><i class="fas fa-arrow-up"></i></div>
+        <div>
+            <div class="kpi-label">Toplam Satış</div>
+            <div class="kpi-value">₺{{ formatted_total_sales }}</div>
+        </div>
+    </div>
+    <div class="kpi-card kpi-red">
+        <div class="kpi-icon"><i class="fas fa-arrow-down"></i></div>
+        <div>
+            <div class="kpi-label">Toplam Alış</div>
+            <div class="kpi-value">₺{{ formatted_total_purchases }}</div>
+        </div>
+    </div>
+    <div class="kpi-card kpi-blue">
+        <div class="kpi-icon"><i class="fas fa-chart-line"></i></div>
+        <div>
+            <div class="kpi-label">Net Kâr</div>
+            <div class="kpi-value" style="color:{% if profit >= 0 %}#4f46e5{% else %}#dc2626{% endif %};">₺{{ formatted_profit }}</div>
+        </div>
+    </div>
+</div>
+
+<div style="margin-bottom:12px;">
+    <span style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--sub);">Hızlı İşlemler</span>
+</div>
+<div class="action-grid">
+    <a href="{% url 'statement' %}" class="ac ac-ekstre">
+        <div class="ac-ico"><i class="fas fa-file-alt"></i></div>
+        <div class="ac-title">Ekstre</div>
+        <div class="ac-sub">Tüm cari hareketleri</div>
+    </a>
+    <a href="{% url 'transaction_create' %}?type=purchase" class="ac ac-purchase">
+        <div class="ac-ico"><i class="fas fa-arrow-down"></i></div>
+        <div class="ac-title">Alış İşlemi</div>
+        <div class="ac-sub">Gübre, fide, boru…</div>
+    </a>
+    <a href="{% url 'transaction_create' %}?type=sale" class="ac ac-sale">
+        <div class="ac-ico"><i class="fas fa-arrow-up"></i></div>
+        <div class="ac-title">Satış İşlemi</div>
+        <div class="ac-sub">Çilek, elma, kiraz…</div>
+    </a>
+    <a href="{% url 'payment_create' %}" class="ac ac-payment">
+        <div class="ac-ico"><i class="fas fa-wallet"></i></div>
+        <div class="ac-title">Yeni Ödeme</div>
+        <div class="ac-sub">Aylık & yıllık planlar</div>
+    </a>
+</div>
+
+<!-- Son İşlemler -->
+<div class="surface" style="margin-top:24px;">
+    <div class="card-header-bar">
+        <div>
+            <div class="ch-title"><i class="fas fa-history me-2" style="color:var(--primary-light);"></i>Son İşlemler</div>
+            <div style="font-size:.77rem;color:var(--sub);margin-top:2px;">En güncel 10 hareket</div>
+        </div>
+        <a href="{% url 'statement' %}" class="btn-o" style="padding:7px 14px;font-size:.82rem;">
+            Tümünü Gör <i class="fas fa-arrow-right ms-1"></i>
+        </a>
+    </div>
+    <ul class="recent-list">
+        {% for t in recent_transactions %}
+        <li class="recent-item">
+            <div class="ri-dot {{ t.type }}">
+                {% if t.type == 'sale' %}<i class="fas fa-arrow-up"></i>{% else %}<i class="fas fa-arrow-down"></i>{% endif %}
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div class="ri-name">{{ t.customer.name }}</div>
+                <div class="ri-sub">{{ t.get_product_display }} · {{ t.date }}</div>
+            </div>
+            <div class="ri-amount {{ t.type }}">
+                {% if t.type == 'sale' %}+{% else %}−{% endif %}₺{{ t.amount|tr_num }}
+            </div>
+        </li>
+        {% empty %}
+        <li style="padding:40px 20px;text-align:center;color:var(--sub);font-size:.87rem;">
+            <i class="fas fa-inbox" style="display:block;font-size:2rem;opacity:.3;margin-bottom:10px;"></i>
+            Henüz işlem bulunmamaktadır.
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

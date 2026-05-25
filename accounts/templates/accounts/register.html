@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Üye Ol - Cari Takip Programı</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Poppins', 'Segoe UI', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* ─── NAVBAR ─── */
+        .top-nav {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            z-index: 999;
+            padding: 14px 0;
+            transition: background 0.4s, box-shadow 0.4s;
+            background: rgba(0,0,0,0.15);
+            backdrop-filter: blur(8px);
+        }
+        .top-nav.scrolled {
+            background: rgba(15, 55, 20, 0.92);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.25);
+        }
+        .nav-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+        .nav-brand {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #fff;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            list-style: none;
+        }
+        .nav-links a {
+            color: rgba(255,255,255,0.88);
+            text-decoration: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.92rem;
+            font-weight: 500;
+            transition: color 0.2s, background 0.2s;
+        }
+        .nav-links a:hover, .nav-links a.active {
+            color: #fff;
+            background: rgba(255,255,255,0.12);
+        }
+        .nav-auth { display: flex; gap: 10px; }
+        .btn-nav-login {
+            color: #fff;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.35);
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+        }
+        .btn-nav-login:hover { background: rgba(255,255,255,0.25); color: #fff; }
+        .btn-nav-register {
+            color: #1a4d1a;
+            background: #7eca50;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.15s;
+            text-decoration: none;
+        }
+        .btn-nav-register:hover { background: #93de65; transform: translateY(-1px); color: #1a4d1a; }
+
+        /* ─── HERO ─── */
+        .hero {
+            min-height: 100vh;
+            background:
+                linear-gradient(
+                    to bottom,
+                    rgba(10, 35, 10, 0.52) 0%,
+                    rgba(20, 60, 15, 0.38) 50%,
+                    rgba(5, 20, 5, 0.62) 100%
+                ),
+                url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1920&q=80')
+                center center / cover no-repeat;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 100px 24px 60px;
+        }
+        .hero-content { max-width: 780px; }
+        .hero-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(126, 202, 80, 0.22);
+            border: 1px solid rgba(126, 202, 80, 0.5);
+            color: #c8f09a;
+            padding: 6px 18px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 28px;
+        }
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3.4rem);
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.15;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 20px rgba(0,0,0,0.4);
+        }
+        .hero h1 .highlight { color: #a3f06a; }
+        .hero p {
+            font-size: clamp(1rem, 2vw, 1.18rem);
+            color: rgba(255,255,255,0.82);
+            margin-bottom: 38px;
+            line-height: 1.7;
+            font-weight: 300;
+        }
+        .hero-btns {
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 50px;
+        }
+        .btn-hero-primary {
+            background: linear-gradient(135deg, #4CAF50, #66BB6A);
+            color: #fff;
+            border: none;
+            padding: 14px 34px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 20px rgba(76,175,80,0.4);
+        }
+        .btn-hero-primary:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(76,175,80,0.5); }
+        .btn-hero-outline {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 2px solid rgba(255,255,255,0.55);
+            padding: 14px 34px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+            backdrop-filter: blur(4px);
+        }
+        .btn-hero-outline:hover { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.85); }
+        .hero-features { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+        .feat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.9);
+            padding: 8px 16px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            backdrop-filter: blur(4px);
+        }
+        .feat-badge i { color: #7eca50; }
+
+        /* ─── MODAL ─── */
+        .modal-content { border: none; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+        .modal-header {
+            background: linear-gradient(135deg, #1a5c1a 0%, #2e7d32 100%);
+            color: #fff; border: none; padding: 28px 32px 20px;
+        }
+        .modal-header .modal-title { font-weight: 700; font-size: 1.4rem; }
+        .modal-header .btn-close { filter: invert(1) opacity(0.8); }
+        .modal-body { padding: 28px 32px 32px; }
+        .form-label { font-weight: 600; font-size: 0.88rem; color: #374151; margin-bottom: 6px; }
+        .form-control {
+            border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 11px 14px;
+            font-size: 0.95rem; transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-control:focus { border-color: #4CAF50; box-shadow: 0 0 0 3px rgba(76,175,80,0.15); outline: none; }
+        .btn-modal-submit {
+            background: linear-gradient(135deg, #2e7d32, #4CAF50);
+            color: #fff; border: none; border-radius: 10px;
+            padding: 12px; font-size: 1rem; font-weight: 700;
+            width: 100%; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;
+        }
+        .btn-modal-submit:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(46,125,50,0.35); }
+        .modal-switch { text-align: center; font-size: 0.88rem; color: #6b7280; margin-top: 16px; }
+        .modal-switch a { color: #2e7d32; font-weight: 600; text-decoration: none; cursor: pointer; }
+        .modal-switch a:hover { text-decoration: underline; }
+        .alert { border-radius: 10px; border: none; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <!-- ─── TOP NAVIGATION ─── -->
+    <nav class="top-nav" id="topNav">
+        <div class="nav-inner">
+            <a class="nav-brand" href="{% url 'login' %}">
+                <span>🌱</span> Cari Takip
+            </a>
+            <ul class="nav-links">
+                <li><a href="{% url 'login' %}">Ana Sayfa</a></li>
+                <li><a href="{% url 'blog' %}">Blog</a></li>
+                <li><a href="{% url 'about' %}">Hakkımızda</a></li>
+                <li><a href="{% url 'contact' %}">İletişim</a></li>
+            </ul>
+            <div class="nav-auth">
+                <button class="btn-nav-login" data-bs-toggle="modal" data-bs-target="#loginModal">
+                    <i class="fas fa-sign-in-alt me-1"></i> Giriş Yap
+                </button>
+                <button class="btn-nav-register" data-bs-toggle="modal" data-bs-target="#registerModal">
+                    <i class="fas fa-user-plus me-1"></i> Üye Ol
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ─── HERO ─── -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-tag">
+                <i class="fas fa-seedling"></i>
+                Tarımsal Yönetim Platformu
+            </div>
+            <h1>Tarım İşletmenizi<br><span class="highlight">Dijitale Taşıyın</span></h1>
+            <p>Cari hesap takibi, ödeme planları ve işlem yönetimini<br>tek platformda, kolayca yönetin. Çiftliğinizi verimli kılın.</p>
+            <div class="hero-btns">
+                <button class="btn-hero-primary" data-bs-toggle="modal" data-bs-target="#loginModal">
+                    <i class="fas fa-sign-in-alt me-2"></i> Giriş Yap
+                </button>
+                <button class="btn-hero-outline" data-bs-toggle="modal" data-bs-target="#registerModal">
+                    <i class="fas fa-user-plus me-2"></i> Ücretsiz Üye Ol
+                </button>
+            </div>
+            <div class="hero-features">
+                <span class="feat-badge"><i class="fas fa-check-circle"></i> Cari Yönetimi</span>
+                <span class="feat-badge"><i class="fas fa-check-circle"></i> Ödeme Planları</span>
+                <span class="feat-badge"><i class="fas fa-check-circle"></i> Ekstre & Raporlar</span>
+                <span class="feat-badge"><i class="fas fa-check-circle"></i> Kolay Kullanım</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── LOGIN MODAL ─── -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:440px;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-sign-in-alt me-2"></i> Giriş Yap</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="post" action="{% url 'login' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label"><i class="fas fa-user me-1" style="color:#4CAF50;"></i> Kullanıcı Adı</label>
+                            <input type="text" class="form-control" name="username" required placeholder="Kullanıcı adınızı girin">
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label"><i class="fas fa-lock me-1" style="color:#4CAF50;"></i> Şifre</label>
+                            <input type="password" class="form-control" name="password" required placeholder="Şifrenizi girin">
+                        </div>
+                        <button type="submit" class="btn-modal-submit">
+                            <i class="fas fa-sign-in-alt me-2"></i> Giriş Yap
+                        </button>
+                    </form>
+                    <div class="modal-switch">
+                        Hesabınız yok mu?
+                        <a onclick="switchModal('loginModal','registerModal')">Üye Ol</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── REGISTER MODAL ─── -->
+    <div class="modal fade" id="registerModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-user-plus me-2"></i> Üye Ol</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                        <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+                            <i class="fas fa-exclamation-circle me-1"></i> {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                    <form method="post" action="{% url 'register' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label"><i class="fas fa-user me-1" style="color:#4CAF50;"></i> Kullanıcı Adı</label>
+                            <input type="text" class="form-control" name="username" required placeholder="Kullanıcı adı seçin">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label"><i class="fas fa-envelope me-1" style="color:#4CAF50;"></i> E-posta</label>
+                            <input type="email" class="form-control" name="email" required placeholder="E-posta adresiniz">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label"><i class="fas fa-lock me-1" style="color:#4CAF50;"></i> Şifre</label>
+                            <input type="password" class="form-control" name="password" required placeholder="Şifre belirleyin">
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label"><i class="fas fa-lock me-1" style="color:#4CAF50;"></i> Şifre Tekrarı</label>
+                            <input type="password" class="form-control" name="password_confirm" required placeholder="Şifreyi tekrar girin">
+                        </div>
+                        <button type="submit" class="btn-modal-submit">
+                            <i class="fas fa-user-plus me-2"></i> Kayıt Ol
+                        </button>
+                    </form>
+                    <div class="modal-switch">
+                        Zaten üye misiniz?
+                        <a onclick="switchModal('registerModal','loginModal')">Giriş Yap</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        window.addEventListener('scroll', function () {
+            document.getElementById('topNav').classList.toggle('scrolled', window.scrollY > 30);
+        });
+
+        function switchModal(hideId, showId) {
+            var hideEl = document.getElementById(hideId);
+            var showEl = document.getElementById(showId);
+            var hideModal = bootstrap.Modal.getInstance(hideEl);
+            if (hideModal) hideModal.hide();
+            hideEl.addEventListener('hidden.bs.modal', function handler() {
+                new bootstrap.Modal(showEl).show();
+                hideEl.removeEventListener('hidden.bs.modal', handler);
+            });
+        }
+
+        // Auto-open register modal on page load (register page)
+        document.addEventListener('DOMContentLoaded', function () {
+            new bootstrap.Modal(document.getElementById('registerModal')).show();
+        });
+    </script>
+</body>
+</html>
