@@ -157,6 +157,13 @@
                     <span class="bp bp-kredi"><i class="fas fa-landmark"></i> Kredi</span>
                 {% endif %}
                 <span style="font-size:.83rem;color:var(--sub);">
+                    {% if p.total_amount %}
+                        Anapara ₺{{ p.total_amount }}
+                        {% if p.interest_rate and p.interest_rate > 0 %}
+                        · <span style="color:#d97706;">%{{ p.interest_rate }} aylık faiz</span>
+                        {% endif %}
+                        ·
+                    {% endif %}
                     ₺{{ p.formatted_amount }} × {{ p.installments }} taksit
                     &nbsp;·&nbsp;
                     <span style="color:#16a34a;">{{ p.paid_count }} ödendi</span>

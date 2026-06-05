@@ -4,13 +4,45 @@
 
 {% block extra_css %}
 <style>
-    .form-wrap { max-width: 760px; }
+    .form-wrap { max-width: 780px; }
     .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
     .form-card-title { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
-    .form-card-sub { font-size: .83rem; color: var(--sub); margin-bottom: 24px; }
-    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-card-sub   { font-size: .83rem; color: var(--sub); margin-bottom: 24px; }
+    .field-row  { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .field-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
     .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
-    @media (max-width:640px) { .field-row { grid-template-columns: 1fr; } }
+
+    /* Faiz toggle */
+    .faiz-toggle {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 14px; border-radius: 10px;
+        background: rgba(99,102,241,.05); border: 1.5px dashed rgba(99,102,241,.3);
+        cursor: pointer; user-select: none; margin-bottom: 4px;
+        font-size: .86rem; font-weight: 600; color: var(--sub);
+    }
+    .faiz-toggle input { display: none; }
+    .faiz-toggle.on { border-color: var(--primary-light); color: var(--primary-light); background: rgba(99,102,241,.08); }
+
+    /* Önizleme kartı */
+    .preview-card {
+        background: var(--bg); border: 1.5px solid var(--border);
+        border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;
+        transition: border-color .2s;
+    }
+    .preview-card.active { border-color: var(--primary-light); }
+    .preview-header { font-size: .72rem; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 12px; }
+    .preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .pv-item { display: flex; flex-direction: column; gap: 3px; }
+    .pv-label { font-size: .68rem; color: var(--sub); font-weight: 600; }
+    .pv-val   { font-size: 1.05rem; font-weight: 800; color: var(--text); }
+    .pv-val.accent { color: var(--primary-light); }
+    .pv-val.red    { color: #dc2626; }
+    .pv-val.green  { color: #16a34a; }
+
+    @media (max-width:640px) {
+        .field-row, .field-row3 { grid-template-columns: 1fr; }
+        .preview-grid { grid-template-columns: 1fr 1fr; }
+    }
 </style>
 {% endblock %}
 
@@ -18,10 +50,12 @@
 <div class="form-wrap">
     <div class="form-card">
         <div class="form-card-title"><i class="fas fa-wallet me-2" style="color:var(--primary-light);"></i>Yeni Ödeme Planı</div>
-        <div class="form-card-sub">Cari, taksit, tutar ve vade bilgilerini ekleyerek ödeme planı oluşturun.</div>
+        <div class="form-card-sub">Toplam tutarı girin; taksit sayısı ve faiz oranına göre taksit miktarı otomatik hesaplanır.</div>
 
-        <form method="post">
+        <form method="post" id="planForm">
             {% csrf_token %}
+
+            <!-- Cari + Plan türü -->
             <div class="field-row mb-3">
                 <div>
                     <label class="form-label">Cari</label>
@@ -36,44 +70,151 @@
                     <label class="form-label">Plan Türü</label>
                     <select name="plan_type" class="form-select" required>
                         <option value="">— Seçin —</option>
-                        <option value="monthly" {% if form_data.plan_type == 'monthly' %}selected{% endif %}>Aylık</option>
-                        <option value="yearly"  {% if form_data.plan_type == 'yearly'  %}selected{% endif %}>Yıllık</option>
+                        <option value="monthly" {% if form_data.plan_type == 'monthly' %}selected{% endif %}>Aylık Taksit</option>
+                        <option value="yearly"  {% if form_data.plan_type == 'yearly'  %}selected{% endif %}>Yıllık Taksit</option>
                     </select>
                 </div>
             </div>
+
+            <!-- Kategori + İlk vade -->
             <div class="field-row mb-3">
                 <div>
                     <label class="form-label">Ödeme Kategorisi</label>
                     <select name="payment_category" class="form-select" required>
                         <option value="">— Seçin —</option>
-                        <option value="tarla_kira" {% if form_data.payment_category == 'tarla_kira' %}selected{% endif %}>Yıllık Tarla Kira</option>
+                        <option value="tarla_kira" {% if form_data.payment_category == 'tarla_kira' %}selected{% endif %}>Tarla Kira</option>
                         <option value="kredi"      {% if form_data.payment_category == 'kredi'      %}selected{% endif %}>Kredi Ödemesi</option>
                     </select>
                 </div>
                 <div>
-                    <label class="form-label">Taksit Sayısı</label>
-                    <input type="number" min="1" name="installments" class="form-control" value="{{ form_data.installments|default:'1' }}" required>
+                    <label class="form-label">İlk Vade Tarihi</label>
+                    <input type="date" name="due_date" id="dueDate" class="form-control" value="{{ form_data.due_date|default:'' }}">
                 </div>
             </div>
-            <div class="field-row mb-3">
+
+            <!-- ── Tutar + Taksit + Faiz ── -->
+            <div class="field-row3 mb-3">
                 <div>
-                    <label class="form-label">Tutar (₺)</label>
-                    <input type="text" inputmode="decimal" name="amount" class="form-control" value="{{ form_data.amount|default:'' }}" placeholder="0,00" required>
+                    <label class="form-label">Toplam Tutar (₺) <span style="color:#dc2626;">*</span></label>
+                    <input type="text" inputmode="decimal" name="total_amount" id="totalAmount"
+                           class="form-control" value="{{ form_data.total_amount|default:'' }}"
+                           placeholder="0,00" required oninput="recalc()">
                 </div>
                 <div>
-                    <label class="form-label">Vade Tarihi</label>
-                    <input type="date" name="due_date" class="form-control" value="{{ form_data.due_date|default:'' }}">
+                    <label class="form-label">Taksit Sayısı <span style="color:#dc2626;">*</span></label>
+                    <input type="number" name="installments" id="installments"
+                           class="form-control" min="1" max="360"
+                           value="{{ form_data.installments|default:'12' }}" required oninput="recalc()">
+                </div>
+                <div>
+                    <label class="form-label">
+                        Aylık Faiz Oranı (%)
+                        <span style="font-weight:400;opacity:.6;font-size:.75rem;">(isteğe bağlı)</span>
+                    </label>
+                    <input type="text" inputmode="decimal" name="interest_rate" id="interestRate"
+                           class="form-control" value="{{ form_data.interest_rate|default:'0' }}"
+                           placeholder="0" oninput="recalc()">
                 </div>
             </div>
+
+            <!-- ── Canlı Önizleme ── -->
+            <div class="preview-card" id="previewCard">
+                <div class="preview-header"><i class="fas fa-calculator me-1"></i>Hesaplama Önizlemesi</div>
+                <div class="preview-grid">
+                    <div class="pv-item">
+                        <span class="pv-label">Taksit Başı Tutar</span>
+                        <span class="pv-val accent" id="pvInstallment">—</span>
+                    </div>
+                    <div class="pv-item">
+                        <span class="pv-label">Toplam Ödenecek</span>
+                        <span class="pv-val" id="pvTotal">—</span>
+                    </div>
+                    <div class="pv-item">
+                        <span class="pv-label">Toplam Faiz</span>
+                        <span class="pv-val red" id="pvInterest">—</span>
+                    </div>
+                </div>
+                <div id="pvFormula" style="font-size:.74rem;color:var(--sub);margin-top:10px;"></div>
+            </div>
+
+            <!-- Açıklama -->
             <div class="mb-2">
                 <label class="form-label">Açıklama</label>
-                <textarea name="description" class="form-control" placeholder="Ödeme planına not ekleyin…">{{ form_data.description|default:'' }}</textarea>
+                <textarea name="description" class="form-control" rows="2"
+                    placeholder="Ödeme planına not ekleyin…">{{ form_data.description|default:'' }}</textarea>
             </div>
+
             <div class="form-actions">
                 <a href="{% url 'payments' %}" class="btn-o"><i class="fas fa-times"></i> İptal</a>
-                <button type="submit" class="btn-g"><i class="fas fa-save"></i> Kaydet</button>
+                <button type="submit" class="btn-g"><i class="fas fa-save"></i> Planı Kaydet</button>
             </div>
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function parseNum(str) {
+    if (!str) return 0;
+    let s = str.trim().replace('₺','').replace(/ /g,'');
+    // Türkçe biçim: 1.234,56 → standart 1234.56
+    if (s.indexOf(',') > -1 && s.indexOf('.') > -1) {
+        s = s.replace(/\./g,'').replace(',','.');
+    } else {
+        s = s.replace(',','.');
+    }
+    return parseFloat(s) || 0;
+}
+
+function fmtTR(num) {
+    if (isNaN(num) || num === null) return '—';
+    return '₺' + num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function calcInstallment(principal, n, monthlyPct) {
+    if (n < 1) return 0;
+    if (monthlyPct <= 0) return principal / n;
+    const r = monthlyPct / 100;
+    const factor = Math.pow(1 + r, n);
+    return principal * r * factor / (factor - 1);
+}
+
+function recalc() {
+    const principal = parseNum(document.getElementById('totalAmount').value);
+    const n         = parseInt(document.getElementById('installments').value) || 0;
+    const rate      = parseNum(document.getElementById('interestRate').value);
+
+    const card = document.getElementById('previewCard');
+
+    if (principal <= 0 || n < 1) {
+        document.getElementById('pvInstallment').textContent = '—';
+        document.getElementById('pvTotal').textContent       = '—';
+        document.getElementById('pvInterest').textContent    = '—';
+        document.getElementById('pvFormula').textContent     = '';
+        card.classList.remove('active');
+        return;
+    }
+
+    const installmentAmt = calcInstallment(principal, n, rate);
+    const totalPay       = installmentAmt * n;
+    const totalInterest  = totalPay - principal;
+
+    document.getElementById('pvInstallment').textContent = fmtTR(installmentAmt);
+    document.getElementById('pvTotal').textContent       = fmtTR(totalPay);
+    document.getElementById('pvInterest').textContent    = totalInterest > 0.005 ? fmtTR(totalInterest) : '—';
+
+    if (rate > 0) {
+        document.getElementById('pvFormula').textContent =
+            `Annüite formülü: P×r(1+r)^n / ((1+r)^n − 1)  |  r = %${rate.toLocaleString('tr-TR', {maximumFractionDigits:3})} aylık`;
+    } else {
+        document.getElementById('pvFormula').textContent =
+            `Faizsiz bölüm: ${fmtTR(principal)} ÷ ${n} taksit`;
+    }
+    card.classList.add('active');
+}
+
+// Sayfa yüklenince hesapla
+recalc();
+</script>
 {% endblock %}

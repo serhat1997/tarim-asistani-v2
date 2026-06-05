@@ -447,27 +447,53 @@ def customer_payment_create(request):
         'form_data': form_data,
     })
 
+def _parse_amount(text):
+    """Türkçe veya standart biçimli tutar stringini Decimal'e çevirir."""
+    t = text.strip().replace('₺', '').replace(' ', '')
+    if ',' in t and '.' in t:
+        t = t.replace('.', '').replace(',', '.')
+    else:
+        t = t.replace(',', '.')
+    return Decimal(t or '0')
+
+
+def _calc_installment(principal, n, monthly_rate_pct):
+    """
+    Taksit başı ödeme miktarını hesaplar.
+    monthly_rate_pct: aylık faiz oranı (% cinsinden, ör. 2.5)
+    Faizsiz → anapara / n
+    Faizli  → annüite formülü: P × r(1+r)^n / ((1+r)^n - 1)
+    """
+    if monthly_rate_pct <= 0:
+        return (principal / n).quantize(Decimal('0.01'))
+    r = monthly_rate_pct / Decimal('100')
+    factor = (1 + r) ** n
+    return (principal * r * factor / (factor - 1)).quantize(Decimal('0.01'))
+
+
 @login_required
 def payment_create(request):
     errors = []
     form_data = {
-        'customer': request.POST.get('customer', ''),
-        'plan_type': request.POST.get('plan_type', ''),
+        'customer':         request.POST.get('customer', ''),
+        'plan_type':        request.POST.get('plan_type', ''),
         'payment_category': request.POST.get('payment_category', ''),
-        'installments': request.POST.get('installments', '1'),
-        'amount': request.POST.get('amount', ''),
-        'due_date': request.POST.get('due_date', ''),
-        'description': request.POST.get('description', ''),
+        'installments':     request.POST.get('installments', '12'),
+        'total_amount':     request.POST.get('total_amount', ''),
+        'interest_rate':    request.POST.get('interest_rate', '0'),
+        'due_date':         request.POST.get('due_date', ''),
+        'description':      request.POST.get('description', ''),
     }
 
     if request.method == 'POST':
-        customer_id = request.POST.get('customer')
-        plan_type = request.POST.get('plan_type')
-        payment_category = request.POST.get('payment_category')
-        installments_text = request.POST.get('installments', '1')
-        amount_text = request.POST.get('amount', '0')
-        due_date = request.POST.get('due_date') or None
-        description = request.POST.get('description', '')
+        customer_id       = request.POST.get('customer')
+        plan_type         = request.POST.get('plan_type')
+        payment_category  = request.POST.get('payment_category')
+        installments_text = request.POST.get('installments', '12')
+        total_amount_text = request.POST.get('total_amount', '0')
+        interest_rate_text= request.POST.get('interest_rate', '0').replace(',', '.')
+        due_date          = request.POST.get('due_date') or None
+        description       = request.POST.get('description', '')
 
         if not customer_id:
             errors.append('Cari seçimi zorunludur.')
@@ -484,19 +510,21 @@ def payment_create(request):
             errors.append('Taksit sayısı için geçerli bir sayı girin.')
             installments = 1
 
-        normalized_amount = amount_text.strip().replace('₺', '').replace(' ', '')
-        if normalized_amount.count(',') and normalized_amount.count('.'):
-            normalized_amount = normalized_amount.replace('.', '').replace(',', '.')
-        else:
-            normalized_amount = normalized_amount.replace(',', '.')
+        try:
+            total_amount = _parse_amount(total_amount_text)
+            if total_amount <= 0:
+                errors.append('Toplam tutar sıfırdan büyük olmalıdır.')
+        except (InvalidOperation, ValueError):
+            errors.append('Geçerli bir toplam tutar girin.')
+            total_amount = Decimal('0')
 
         try:
-            amount = Decimal(normalized_amount or '0')
-            if amount <= 0:
-                errors.append('Tutar sıfırdan büyük olmalıdır.')
+            interest_rate = Decimal(interest_rate_text or '0')
+            if interest_rate < 0:
+                errors.append('Faiz oranı negatif olamaz.')
         except (InvalidOperation, ValueError):
-            errors.append('Geçerli bir tutar girin.')
-            amount = Decimal('0')
+            errors.append('Geçerli bir faiz oranı girin.')
+            interest_rate = Decimal('0')
 
         customer = None
         if customer_id:
@@ -511,27 +539,29 @@ def payment_create(request):
         if not errors and customer:
             from .models import Installment
             from dateutil.relativedelta import relativedelta
+
+            installment_amount = _calc_installment(total_amount, installments, interest_rate)
+
             plan = PaymentPlan.objects.create(
                 user=request.user,
                 customer=customer,
                 plan_type=plan_type,
                 payment_category=payment_category,
                 installments=installments,
-                amount=amount,
+                total_amount=total_amount,
+                interest_rate=interest_rate,
+                amount=installment_amount,
                 due_date=due_date,
                 description=description,
             )
-            # Taksitleri otomatik oluştur
             if due_date:
                 start = dt_date.fromisoformat(str(due_date))
                 for i in range(installments):
-                    if plan_type == 'monthly':
-                        taksit_date = start + relativedelta(months=i)
-                    else:
-                        taksit_date = start + relativedelta(years=i)
+                    taksit_date = start + relativedelta(months=i) if plan_type == 'monthly' \
+                                  else start + relativedelta(years=i)
                     Installment.objects.create(
                         plan=plan, number=i + 1,
-                        due_date=taksit_date, amount=amount,
+                        due_date=taksit_date, amount=installment_amount,
                     )
             return redirect('payments')
 
