@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
-from .models import Transaction
+from .models import Transaction, Product
 from customers.models import Customer
 from fields.models import Field
 from decimal import Decimal
@@ -26,6 +26,13 @@ def transaction_create(request):
         reference_no = request.POST.get('reference_no', '').strip()
         field_id = request.POST.get('field') or None
         field_obj = Field.objects.filter(pk=field_id).first() if field_id else None
+
+        date_str = request.POST.get('date', '').strip()
+        try:
+            tx_date = datetime.date.fromisoformat(date_str) if date_str else datetime.date.today()
+        except ValueError:
+            tx_date = datetime.date.today()
+
         tx = Transaction.objects.create(
             user=request.user,
             customer=customer,
@@ -37,6 +44,7 @@ def transaction_create(request):
             reference_no=reference_no,
             description=description,
             field=field_obj,
+            date=tx_date,
         )
 
         # Alış → envantere ekle
@@ -55,7 +63,7 @@ def transaction_create(request):
                 quantity=quantity,
                 unit=inv_unit,
                 purchase_price=quantity * unit_price,
-                purchase_date=datetime.date.today(),
+                purchase_date=tx_date,
                 notes=description,
                 source_transaction=tx,
             )
@@ -68,7 +76,7 @@ def transaction_create(request):
                 inv_item = InventoryItem.objects.filter(pk=inv_item_id, user=request.user).first()
                 if inv_item:
                     inv_item.sale_price    = quantity * unit_price
-                    inv_item.sale_date     = datetime.date.today()
+                    inv_item.sale_date     = tx_date
                     inv_item.sale_quantity = quantity
                     inv_item.sale_transaction = tx
                     inv_item.save()
@@ -91,11 +99,17 @@ def transaction_create(request):
     inv_items = InventoryItem.objects.filter(
         user=request.user, sale_date__isnull=True
     ).order_by('name')
+
+    sale_products     = list(Product.objects.filter(product_type__in=['sale', 'both'], active=True).values('slug', 'name', 'default_unit'))
+    purchase_products = list(Product.objects.filter(product_type__in=['purchase', 'both'], active=True).values('slug', 'name', 'default_unit'))
+
     return render(request, 'transactions/transaction_form.html', {
-        'customers': customers,
-        'fields': fields,
-        'selected_type': selected_type,
-        'selected_product': selected_product,
+        'customers':          customers,
+        'fields':             fields,
+        'selected_type':      selected_type,
+        'selected_product':   selected_product,
+        'sale_products':      sale_products,
+        'purchase_products':  purchase_products,
         'inv_categories': INV_CATEGORIES,
         'inv_items': inv_items,
     })
@@ -119,3 +133,52 @@ def transaction_delete(request, pk):
             return redirect(next_url)
         return redirect('statement')
     return redirect('statement')
+
+
+# ─── Ürün Yönetimi ────────────────────────────────────────────────────────────
+
+@login_required
+def product_list(request):
+    products = Product.objects.all()
+    return render(request, 'transactions/product_list.html', {'products': products})
+
+
+@login_required
+def product_create(request):
+    if request.method == 'POST':
+        name         = request.POST.get('name', '').strip()
+        product_type = request.POST.get('product_type', 'sale')
+        default_unit = request.POST.get('default_unit', 'kg')
+        if name:
+            import re
+            slug = re.sub(r'[^a-z0-9_]', '', name.lower()
+                          .replace('ç', 'c').replace('ğ', 'g').replace('ı', 'i')
+                          .replace('ö', 'o').replace('ş', 's').replace('ü', 'u'))
+            slug = slug[:50] or f"urun_{Product.objects.count() + 1}"
+            # Slug çakışması
+            base, i = slug, 1
+            while Product.objects.filter(slug=slug).exists():
+                slug = f"{base}_{i}"; i += 1
+            Product.objects.create(
+                slug=slug, name=name, product_type=product_type,
+                default_unit=default_unit, active=True,
+                order=Product.objects.filter(product_type__in=[product_type, 'both']).count() + 1,
+            )
+    return redirect('product_list')
+
+
+@login_required
+def product_toggle(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    if request.method == 'POST':
+        product.active = not product.active
+        product.save(update_fields=['active'])
+    return redirect('product_list')
+
+
+@login_required
+def product_delete(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    if request.method == 'POST':
+        product.delete()
+    return redirect('product_list')

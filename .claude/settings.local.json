@@ -19,7 +19,30 @@
       "Bash(git commit *)",
       "Bash(git push *)",
       "Bash(gh --version)",
-      "Bash(git init *)"
+      "Bash(git init *)",
+      "Bash(git branch *)",
+      "Bash(git remote *)",
+      "Bash(python manage.py makemigrations fields --name=\"field_user_fk\")",
+      "Bash(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\SPERKKARA\\\\Desktop\\\\Yeni klasör\\\\accounts\\\\management\")",
+      "Bash(Out-Null)",
+      "Bash(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\SPERKKARA\\\\Desktop\\\\Yeni klasör\\\\accounts\\\\management\\\\commands\")",
+      "Bash(Write-Host \"OK\")",
+      "Bash(python manage.py dumpdata --natural-foreign --natural-primary --exclude=contenttypes --exclude=auth.permission -o data.json)",
+      "Bash(python -c \"import json; data=json.load\\(open\\('data.json'\\)\\); models={}; [models.update\\({r['model']:models.get\\(r['model'],0\\)+1}\\) for r in data]; [print\\(f'{v:4d}  {k}'\\) for k,v in sorted\\(models.items\\(\\)\\)]; print\\(f'---\\\\nToplam: {len\\(data\\)} kayit'\\)\")",
+      "Bash(python manage.py loaddata data.json)",
+      "Bash(python manage.py loaddata data_utf8.json)",
+      "Bash(python manage.py check --deploy)",
+      "Bash(python manage.py shell -c \"from django.template.loader import get_template; get_template\\('dashboard/statement.html'\\); print\\('OK'\\)\")",
+      "Bash(python manage.py makemigrations transactions --name \"transaction_date_editable\")",
+      "Bash(python manage.py migrate transactions)",
+      "Bash(xargs head -30)",
+      "Bash(python manage.py makemigrations transactions --name \"product_model_dynamic\")",
+      "Bash(python manage.py makemigrations dashboard --name \"installment_model\")",
+      "Bash(python manage.py migrate dashboard)",
+      "Bash(python manage.py makemigrations customers --name \"balance_precision\")",
+      "Bash(python manage.py migrate customers)",
+      "Bash(python manage.py makemigrations dashboard --name \"audit_log\")",
+      "Bash(python manage.py shell -c ' *)"
     ]
   }
 }

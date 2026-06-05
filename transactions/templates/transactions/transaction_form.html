@@ -80,7 +80,7 @@
                 </div>
             </div>
 
-            <div class="field-2 mb-3">
+            <div class="field-3 mb-3">
                 <div>
                     <label class="form-label">Cari Seç</label>
                     <select class="form-select" name="customer" required>
@@ -95,6 +95,10 @@
                     <select class="form-select" id="product" name="product" required>
                         <option value="">— Önce tür seçin —</option>
                     </select>
+                </div>
+                <div>
+                    <label class="form-label"><i class="fas fa-calendar me-1" style="color:var(--primary-light);"></i>Tarih</label>
+                    <input type="date" name="date" id="txDate" class="form-control" required>
                 </div>
             </div>
 
@@ -225,8 +229,8 @@
 
 {% block extra_js %}
 <script>
-    const saleOpts     = [{v:'cilek',l:'Çilek'},{v:'elma',l:'Elma'},{v:'kiraz',l:'Kiraz'},{v:'seftali',l:'Şeftali'},{v:'diger',l:'Diğer'}];
-    const purchaseOpts = [{v:'gubre',l:'Gübre'},{v:'fide',l:'Fide'},{v:'boru',l:'Boru'},{v:'diger',l:'Diğer'}];
+    const saleOpts     = {{ sale_products|safe }}.map(p => ({v: p.slug, l: p.name, u: p.default_unit}));
+    const purchaseOpts = {{ purchase_products|safe }}.map(p => ({v: p.slug, l: p.name, u: p.default_unit}));
     const productSel   = document.getElementById('product');
     const qtyInp       = document.getElementById('quantity');
     const priceInp     = document.getElementById('unit_price');
@@ -240,11 +244,19 @@
         productSel.innerHTML = opts.length ? '' : '<option value="">— Önce tür seçin —</option>';
         opts.forEach(o => {
             const el = document.createElement('option');
-            el.value = o.v; el.textContent = o.l;
+            el.value = o.v; el.textContent = o.l; el.dataset.unit = o.u || '';
             productSel.appendChild(el);
         });
         if (initProd) productSel.value = initProd;
     }
+
+    productSel.addEventListener('change', function () {
+        const opt = this.selectedOptions[0];
+        if (opt && opt.dataset.unit) {
+            const unitSel = document.querySelector('select[name="unit"]');
+            if (unitSel) unitSel.value = opt.dataset.unit;
+        }
+    });
 
     const totalPreview = document.getElementById('totalPreview');
     const totalVal     = document.getElementById('totalVal');
@@ -335,6 +347,12 @@
         qtyInp.value   = qtyInp.value.replace(/\./g,'').replace(/,/g,'.');
         priceInp.value = priceInp.value.replace(/\./g,'').replace(/,/g,'.');
     });
+
+    // Tarih inputuna bugünün tarihi varsayılan olarak set edilir
+    const txDateEl = document.getElementById('txDate');
+    if (!txDateEl.value) {
+        txDateEl.value = new Date().toISOString().split('T')[0];
+    }
 
     fillProducts();
     updateInvToggle();

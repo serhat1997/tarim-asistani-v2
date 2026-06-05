@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from customers.models import Customer
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 
 
 class CustomerPayment(models.Model):
@@ -54,3 +56,79 @@ class PaymentPlan(models.Model):
 
     def __str__(self):
         return f"{self.get_payment_category_display()} - {self.customer.name} - {self.amount}"
+
+    @property
+    def paid_count(self):
+        return self.taksitler.filter(is_paid=True).count()
+
+    @property
+    def overdue_count(self):
+        from datetime import date
+        return self.taksitler.filter(is_paid=False, due_date__lt=date.today()).count()
+
+
+class Installment(models.Model):
+    plan       = models.ForeignKey(PaymentPlan, on_delete=models.CASCADE, related_name='taksitler')
+    number     = models.PositiveIntegerField()
+    due_date   = models.DateField()
+    amount     = models.DecimalField(max_digits=12, decimal_places=2)
+    is_paid    = models.BooleanField(default=False)
+    paid_date  = models.DateField(null=True, blank=True)
+    reference_no = models.CharField(max_length=60, blank=True)
+    note       = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['number']
+
+    def __str__(self):
+        return f"{self.plan} — Taksit {self.number}"
+
+    @property
+    def is_overdue(self):
+        from datetime import date
+        return not self.is_paid and self.due_date < date.today()
+
+
+class AuditLog(models.Model):
+    ACTIONS = [('created', 'Oluşturuldu'), ('deleted', 'Silindi')]
+
+    user        = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    action      = models.CharField(max_length=10, choices=ACTIONS)
+    model_name  = models.CharField(max_length=50)
+    object_repr = models.CharField(max_length=255)
+    timestamp   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.timestamp:%Y-%m-%d %H:%M} | {self.model_name} {self.action} — {self.object_repr}"
+
+
+# ─── Sinyal ile otomatik loglama ──────────────────────────────────────────────
+
+def _log(action, instance, user=None):
+    try:
+        AuditLog.objects.create(
+            user=user,
+            action=action,
+            model_name=instance.__class__.__name__,
+            object_repr=str(instance)[:255],
+        )
+    except Exception:
+        pass
+
+
+@receiver(post_save)
+def on_save(sender, instance, created, **kwargs):
+    if sender.__name__ not in ('Transaction', 'CustomerPayment', 'Installment'):
+        return
+    if created:
+        _log('created', instance)
+
+
+@receiver(post_delete)
+def on_delete(sender, instance, **kwargs):
+    if sender.__name__ not in ('Transaction', 'CustomerPayment', 'Installment', 'PaymentPlan'):
+        return
+    _log('deleted', instance)

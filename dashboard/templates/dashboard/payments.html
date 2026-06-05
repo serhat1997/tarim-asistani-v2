@@ -140,68 +140,137 @@
 
 <!-- ─── Ödeme Planları ─── -->
 <div id="tab-plans" class="tab-pane">
-    <div class="surface">
-        <div style="overflow-x:auto;">
-            <table class="dt">
+    {% for p in plans %}
+    <div class="surface" style="margin-bottom:16px;">
+        <!-- Plan başlık satırı -->
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <strong style="font-size:.95rem;">{{ p.customer.name }}</strong>
+                {% if p.plan_type == 'monthly' %}
+                    <span class="bp bp-monthly"><i class="fas fa-rotate"></i> Aylık</span>
+                {% else %}
+                    <span class="bp bp-yearly"><i class="fas fa-calendar"></i> Yıllık</span>
+                {% endif %}
+                {% if p.payment_category == 'tarla_kira' %}
+                    <span class="bp bp-kira"><i class="fas fa-seedling"></i> Tarla Kira</span>
+                {% else %}
+                    <span class="bp bp-kredi"><i class="fas fa-landmark"></i> Kredi</span>
+                {% endif %}
+                <span style="font-size:.83rem;color:var(--sub);">
+                    ₺{{ p.formatted_amount }} × {{ p.installments }} taksit
+                    &nbsp;·&nbsp;
+                    <span style="color:#16a34a;">{{ p.paid_count }} ödendi</span>
+                    {% if p.overdue_count %}&nbsp;·&nbsp;<span style="color:#dc2626;">{{ p.overdue_count }} gecikmiş</span>{% endif %}
+                </span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button class="btn-o" style="padding:5px 12px;font-size:.78rem;"
+                    onclick="toggleInstallments({{ p.pk }})">
+                    <i class="fas fa-list"></i> Taksitler
+                </button>
+                <button class="btn-danger-soft" style="padding:5px 10px;font-size:.78rem;"
+                    onclick="confirmDelete('{% url 'payment_plan_delete' p.pk %}', '{{ p.customer.name }} — ödeme planı silinecek.')">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        </div>
+        <!-- Taksit tablosu (gizli, toggle ile açılır) -->
+        <div id="inst-{{ p.pk }}" style="display:none;">
+            {% if p.taksitler.all %}
+            <table class="dt" style="margin:0;">
                 <thead>
                     <tr>
-                        <th>Cari</th>
-                        <th>Plan</th>
-                        <th>Kategori</th>
-                        <th>Taksit</th>
-                        <th>Tutar</th>
+                        <th style="width:50px;">#</th>
                         <th>Vade</th>
-                        <th>Açıklama</th>
+                        <th>Tutar</th>
+                        <th>Durum</th>
+                        <th>Ödeme Tarihi</th>
+                        <th>Ref No</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for p in plans %}
-                    <tr>
-                        <td><strong>{{ p.customer.name }}</strong></td>
-                        <td>
-                            {% if p.plan_type == 'monthly' %}
-                                <span class="bp bp-monthly"><i class="fas fa-rotate"></i> Aylık</span>
-                            {% else %}
-                                <span class="bp bp-yearly"><i class="fas fa-calendar"></i> Yıllık</span>
+                    {% for inst in p.taksitler.all %}
+                    <tr {% if inst.is_paid %}style="opacity:.6;"{% elif inst.is_overdue %}style="background:rgba(239,68,68,.04);"{% endif %}>
+                        <td style="font-size:.82rem;color:var(--sub);">{{ inst.number }}</td>
+                        <td style="font-size:.82rem;{% if inst.is_overdue and not inst.is_paid %}color:#dc2626;font-weight:700;{% endif %}">
+                            {{ inst.due_date }}
+                            {% if inst.is_overdue and not inst.is_paid %}
+                            <span class="bp" style="background:rgba(239,68,68,.1);color:#dc2626;font-size:.68rem;margin-left:4px;">Gecikmiş</span>
                             {% endif %}
                         </td>
+                        <td style="font-weight:700;">₺{{ inst.amount }}</td>
                         <td>
-                            {% if p.payment_category == 'tarla_kira' %}
-                                <span class="bp bp-kira"><i class="fas fa-seedling"></i> Tarla Kira</span>
+                            {% if inst.is_paid %}
+                            <span class="bp bp-alindi"><i class="fas fa-check"></i> Ödendi</span>
                             {% else %}
-                                <span class="bp bp-kredi"><i class="fas fa-landmark"></i> Kredi</span>
+                            <span class="bp" style="background:rgba(107,114,128,.1);color:#6b7280;"><i class="fas fa-clock"></i> Bekliyor</span>
                             {% endif %}
                         </td>
-                        <td>{{ p.installments }} taksit</td>
-                        <td><strong>₺{{ p.formatted_amount }}</strong></td>
-                        <td style="color:var(--sub);font-size:.83rem;">{{ p.due_date|default:'—' }}</td>
-                        <td style="color:var(--sub);font-size:.83rem;">{{ p.description|default:'—' }}</td>
+                        <td style="font-size:.82rem;color:var(--sub);">{{ inst.paid_date|default:'—' }}</td>
+                        <td style="font-family:monospace;font-size:.79rem;color:var(--sub);">{{ inst.reference_no|default:'—' }}</td>
                         <td>
-                            <button class="btn-danger-soft" style="padding:5px 10px;font-size:.78rem;"
-                                onclick="confirmDelete('{% url 'payment_plan_delete' p.pk %}', '{{ p.customer.name }} — ödeme planı silinecek.')">
-                                <i class="fas fa-trash-alt"></i>
+                            {% if inst.is_paid %}
+                            <form method="post" action="{% url 'installment_unpay' inst.pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-o" style="padding:4px 9px;font-size:.74rem;" title="Ödemeyi geri al">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                            </form>
+                            {% else %}
+                            <button class="btn-g" style="padding:4px 10px;font-size:.74rem;"
+                                onclick="openPayModal({{ inst.pk }}, '{{ inst.due_date }}', '₺{{ inst.amount }}')">
+                                <i class="fas fa-check"></i> Öde
                             </button>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="8">
-                            <div class="empty-state">
-                                <i class="fas fa-wallet"></i>
-                                Henüz ödeme planı oluşturulmadı.
-                                <div style="margin-top:12px;">
-                                    <a href="{% url 'payment_create' %}" class="btn-g" style="display:inline-flex;">
-                                        <i class="fas fa-plus"></i> Yeni Plan Ekle
-                                    </a>
-                                </div>
-                            </div>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <div style="padding:16px 18px;font-size:.84rem;color:var(--sub);">
+                <i class="fas fa-info-circle me-1"></i>
+                Bu plan için taksit kaydı oluşturulmamış (vade tarihi girilmemiş olabilir).
+            </div>
+            {% endif %}
         </div>
+    </div>
+    {% empty %}
+    <div class="surface">
+        <div class="empty-state">
+            <i class="fas fa-wallet"></i>
+            Henüz ödeme planı oluşturulmadı.
+            <div style="margin-top:12px;">
+                <a href="{% url 'payment_create' %}" class="btn-g" style="display:inline-flex;">
+                    <i class="fas fa-plus"></i> Yeni Plan Ekle
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Taksit Öde Modal -->
+<div id="payModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:var(--surface);border-radius:var(--radius);padding:28px;max-width:400px;width:90%;border:1px solid var(--border);">
+        <div style="font-size:1rem;font-weight:700;margin-bottom:16px;"><i class="fas fa-check-circle me-2" style="color:#16a34a;"></i>Taksit Öde</div>
+        <div id="payModalDesc" style="font-size:.85rem;color:var(--sub);margin-bottom:16px;"></div>
+        <form method="post" id="payModalForm">
+            {% csrf_token %}
+            <div style="margin-bottom:12px;">
+                <label style="font-size:.75rem;font-weight:700;color:var(--sub);display:block;margin-bottom:5px;">Ödeme Tarihi</label>
+                <input type="date" name="paid_date" id="payModalDate" class="form-control" required>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="font-size:.75rem;font-weight:700;color:var(--sub);display:block;margin-bottom:5px;">Ref No / Dekont <span style="font-weight:400;opacity:.6;">(isteğe bağlı)</span></label>
+                <input type="text" name="reference_no" class="form-control" placeholder="Dekont no…">
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" class="btn-o" onclick="closePayModal()">İptal</button>
+                <button type="submit" class="btn-g"><i class="fas fa-check"></i> Kaydet</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -215,5 +284,22 @@ function switchTab(name, btn) {
     document.getElementById('tab-' + name).classList.add('active');
     btn.classList.add('active');
 }
+function toggleInstallments(pk) {
+    const el = document.getElementById('inst-' + pk);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function openPayModal(pk, dueDate, amount) {
+    document.getElementById('payModalForm').action = '/odemeler/taksit/' + pk + '/ode/';
+    document.getElementById('payModalDate').value  = new Date().toISOString().split('T')[0];
+    document.getElementById('payModalDesc').textContent = 'Vade: ' + dueDate + '  |  Tutar: ' + amount;
+    const m = document.getElementById('payModal');
+    m.style.display = 'flex';
+}
+function closePayModal() {
+    document.getElementById('payModal').style.display = 'none';
+}
+document.getElementById('payModal').addEventListener('click', function(e) {
+    if (e.target === this) closePayModal();
+});
 </script>
 {% endblock %}

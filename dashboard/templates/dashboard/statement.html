@@ -3,19 +3,63 @@
 {% block page_title %}Ekstre{% endblock %}
 
 {% block topbar_right %}
-<a href="{% url 'transaction_create' %}" class="btn-g"><i class="fas fa-plus"></i> İşlem Ekle</a>
+<div style="display:flex;gap:8px;">
+    <a href="{% url 'transaction_create' %}" class="btn-g"><i class="fas fa-plus"></i> İşlem Ekle</a>
+    {% if selected_customer %}
+    <a href="{% url 'statement_export' %}?customer={{ selected_customer.id }}{% if filter_period %}&period={{ filter_period }}{% endif %}{% if filter_date_from %}&date_from={{ filter_date_from }}{% endif %}{% if filter_date_to %}&date_to={{ filter_date_to }}{% endif %}{% if filter_product %}&product={{ filter_product }}{% endif %}{% for t in filter_islem_turu %}&islem_turu={{ t }}{% endfor %}"
+       class="btn-o" style="padding:9px 14px;"><i class="fas fa-file-excel"></i> Excel</a>
+    <button onclick="window.print()" class="btn-o" style="padding:9px 14px;"><i class="fas fa-print"></i> Yazdır</button>
+    {% endif %}
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
     .stmt-filter {
         background: var(--surface); border: 1px solid var(--border);
-        border-radius: var(--radius); padding: 18px 22px;
+        border-radius: var(--radius); padding: 16px 20px;
         margin-bottom: 18px;
-        display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
     }
-    .stmt-filter-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 200px; }
-    .stmt-filter-group label { font-size: .75rem; font-weight: 700; color: var(--sub); letter-spacing: .3px; }
+    .stmt-filter-row {
+        display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
+    }
+    .stmt-filter-row + .stmt-filter-row {
+        margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+    }
+    .stmt-filter-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 150px; }
+    .stmt-filter-group.wide { min-width: 200px; flex: 2; }
+    .stmt-filter-group.narrow { flex: 0 0 auto; min-width: auto; }
+    .stmt-filter-group label { font-size: .72rem; font-weight: 700; color: var(--sub); letter-spacing: .3px; }
+
+    /* Check pills (işlem türü) */
+    .check-pills { display: flex; gap: 6px; flex-wrap: wrap; padding: 4px 0; }
+    .check-pill {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 5px 10px; border-radius: 20px; font-size: .78rem; font-weight: 600;
+        border: 1px solid var(--border); background: var(--bg); color: var(--text);
+        cursor: pointer; user-select: none; transition: .15s;
+    }
+    .check-pill input { display: none; }
+    .check-pill:hover { border-color: var(--primary-light); }
+    .check-pill.active-sale     { background: rgba(59,130,246,.12);  border-color: #2563eb; color: #2563eb; }
+    .check-pill.active-purchase { background: rgba(245,158,11,.12);  border-color: #d97706; color: #d97706; }
+    .check-pill.active-received { background: rgba(34,197,94,.12);   border-color: #16a34a; color: #16a34a; }
+    .check-pill.active-paid     { background: rgba(239,68,68,.12);   border-color: #dc2626; color: #dc2626; }
+
+    /* Aktif filtre çipleri */
+    .active-filter-bar {
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        background: rgba(99,102,241,.06); border: 1px solid rgba(99,102,241,.2);
+        border-radius: var(--radius); padding: 8px 14px; margin-bottom: 14px;
+        font-size: .78rem;
+    }
+    .af-label { font-weight: 700; color: var(--primary-light); }
+    .af-chip {
+        background: rgba(99,102,241,.12); color: var(--primary-light);
+        border-radius: 20px; padding: 3px 10px; font-weight: 600; white-space: nowrap;
+    }
+    .af-clear { margin-left: auto; font-size: .75rem; color: var(--sub); text-decoration: none; }
+    .af-clear:hover { color: var(--primary-light); }
 
     /* Summary */
     .summary-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 12px; }
@@ -48,7 +92,6 @@
     .net-val.pos { color: #16a34a; }
     .net-val.neg { color: #dc2626; }
 
-    /* Table badges */
     .bp-sale     { background: rgba(59,130,246,.1);  color: #2563eb; }
     .bp-purchase { background: rgba(245,158,11,.1);  color: #d97706; }
     .bp-received { background: rgba(34,197,94,.1);   color: #16a34a; }
@@ -61,34 +104,156 @@
     .empty-state { text-align:center; padding:60px 20px; color:var(--sub); }
     .empty-state i { font-size:3rem; margin-bottom:14px; opacity:.3; display:block; }
 
-    @media (max-width: 768px) { .summary-row { grid-template-columns: repeat(2,1fr); } }
-    @media (max-width: 480px) { .summary-row { grid-template-columns: 1fr; } }
+    /* disabled date inputs */
+    input[type="date"]:disabled { opacity: .4; cursor: not-allowed; }
+
+    @media (max-width: 768px) {
+        .summary-row { grid-template-columns: repeat(2,1fr); }
+        .stmt-filter-group { min-width: 140px; }
+    }
+    @media (max-width: 480px) {
+        .summary-row { grid-template-columns: 1fr; }
+        .stmt-filter-group { min-width: 100%; }
+    }
+    @media print {
+        .stmt-filter, .active-filter-bar, .card-header-bar a,
+        [class*="btn-"], .sidebar, .topbar, .btn-danger-soft { display: none !important; }
+        body, .main-content { margin: 0 !important; padding: 0 !important; }
+        .surface { border: 1px solid #ccc !important; box-shadow: none !important; }
+        .net-card { border: 1px solid #ccc !important; }
+        @page { margin: 1.5cm; }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- Cari Seçici -->
+<!-- Filtre Paneli -->
 <div class="stmt-filter">
-    <div class="stmt-filter-group">
-        <label><i class="fas fa-address-book me-1"></i>Cari Seç</label>
-        <select class="form-select" id="customerSelect" onchange="applyFilter()">
-            <option value="">— Cari seçin —</option>
-            {% for c in customers %}
-            <option value="{{ c.id }}" {% if selected_customer and selected_customer.id == c.id %}selected{% endif %}>
-                {{ c.name }}
-            </option>
-            {% endfor %}
-        </select>
+    <!-- Satır 1: Cari -->
+    <div class="stmt-filter-row">
+        <div class="stmt-filter-group wide">
+            <label><i class="fas fa-address-book me-1"></i>Cari Seç</label>
+            <select class="form-select" id="customerSelect" onchange="applyFilter()">
+                <option value="">— Cari seçin —</option>
+                {% for c in customers %}
+                <option value="{{ c.id }}" {% if selected_customer and selected_customer.id == c.id %}selected{% endif %}>
+                    {{ c.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="stmt-filter-group" style="min-width:140px;">
+            <label><i class="fas fa-calendar-alt me-1"></i>Dönem</label>
+            <select class="form-select" id="periodSelect" onchange="onPeriodChange()">
+                <option value="">Özel Tarih</option>
+                <option value="bu_ay"     {% if filter_period == 'bu_ay' %}selected{% endif %}>Bu Ay</option>
+                <option value="gecen_ay"  {% if filter_period == 'gecen_ay' %}selected{% endif %}>Geçen Ay</option>
+                <option value="bu_yil"    {% if filter_period == 'bu_yil' %}selected{% endif %}>Bu Yıl</option>
+                <option value="gecen_yil" {% if filter_period == 'gecen_yil' %}selected{% endif %}>Geçen Yıl</option>
+                <option value="son_7_gun" {% if filter_period == 'son_7_gun' %}selected{% endif %}>Son 7 Gün</option>
+                <option value="son_30_gun"{% if filter_period == 'son_30_gun' %}selected{% endif %}>Son 30 Gün</option>
+                <option value="son_90_gun"{% if filter_period == 'son_90_gun' %}selected{% endif %}>Son 90 Gün</option>
+            </select>
+        </div>
+
+        <div class="stmt-filter-group" style="min-width:140px;">
+            <label><i class="fas fa-calendar me-1"></i>Başlangıç</label>
+            <input type="date" class="form-select" id="dateFrom"
+                value="{{ filter_date_from }}"
+                {% if filter_period %}disabled{% endif %}
+                onchange="onDateChange()">
+        </div>
+
+        <div class="stmt-filter-group" style="min-width:140px;">
+            <label><i class="fas fa-calendar me-1"></i>Bitiş</label>
+            <input type="date" class="form-select" id="dateTo"
+                value="{{ filter_date_to }}"
+                {% if filter_period %}disabled{% endif %}
+                onchange="onDateChange()">
+        </div>
+
+        <div class="stmt-filter-group" style="min-width:140px;">
+            <label><i class="fas fa-box me-1"></i>Ürün</label>
+            <select class="form-select" id="productSelect">
+                <option value="">— Tümü —</option>
+                {% for val, lbl in all_products %}
+                <option value="{{ val }}" {% if filter_product == val %}selected{% endif %}>{{ lbl }}</option>
+                {% endfor %}
+            </select>
+        </div>
     </div>
-    {% if selected_customer %}
-    <a href="{% url 'statement' %}" class="btn-o" style="padding:9px 14px;font-size:.84rem;white-space:nowrap;">
-        <i class="fas fa-times"></i> Temizle
-    </a>
-    {% endif %}
+
+    <!-- Satır 2: İşlem türü + Butonlar -->
+    <div class="stmt-filter-row">
+        <div class="stmt-filter-group wide">
+            <label><i class="fas fa-tags me-1"></i>İşlem Türü</label>
+            <div class="check-pills">
+                <label class="check-pill {% if 'sale' in filter_islem_turu %}active-sale{% endif %}" id="pill-sale">
+                    <input type="checkbox" name="islem_turu" value="sale"
+                        {% if 'sale' in filter_islem_turu %}checked{% endif %}
+                        onchange="updatePill(this,'active-sale')">
+                    <i class="fas fa-arrow-up"></i> Satış
+                </label>
+                <label class="check-pill {% if 'purchase' in filter_islem_turu %}active-purchase{% endif %}" id="pill-purchase">
+                    <input type="checkbox" name="islem_turu" value="purchase"
+                        {% if 'purchase' in filter_islem_turu %}checked{% endif %}
+                        onchange="updatePill(this,'active-purchase')">
+                    <i class="fas fa-arrow-down"></i> Alış
+                </label>
+                <label class="check-pill {% if 'payment_alindi' in filter_islem_turu %}active-received{% endif %}" id="pill-payment_alindi">
+                    <input type="checkbox" name="islem_turu" value="payment_alindi"
+                        {% if 'payment_alindi' in filter_islem_turu %}checked{% endif %}
+                        onchange="updatePill(this,'active-received')">
+                    <i class="fas fa-hand-holding-usd"></i> Tahsilat
+                </label>
+                <label class="check-pill {% if 'payment_odendi' in filter_islem_turu %}active-paid{% endif %}" id="pill-payment_odendi">
+                    <input type="checkbox" name="islem_turu" value="payment_odendi"
+                        {% if 'payment_odendi' in filter_islem_turu %}checked{% endif %}
+                        onchange="updatePill(this,'active-paid')">
+                    <i class="fas fa-money-bill-wave"></i> Ödeme
+                </label>
+            </div>
+        </div>
+
+        <div class="stmt-filter-group narrow" style="display:flex;gap:8px;align-items:flex-end;">
+            <button onclick="applyFilter()" class="btn-g" style="padding:9px 16px;font-size:.84rem;white-space:nowrap;">
+                <i class="fas fa-filter"></i> Uygula
+            </button>
+            {% if selected_customer %}
+                {% if is_filtered %}
+                <a href="{% url 'statement' %}?customer={{ selected_customer.id }}"
+                   class="btn-o" style="padding:9px 12px;font-size:.84rem;white-space:nowrap;" title="Filtreleri sıfırla">
+                    <i class="fas fa-undo"></i> Sıfırla
+                </a>
+                {% endif %}
+                <a href="{% url 'statement' %}"
+                   class="btn-o" style="padding:9px 12px;font-size:.84rem;white-space:nowrap;" title="Cariyi temizle">
+                    <i class="fas fa-times"></i>
+                </a>
+            {% endif %}
+        </div>
+    </div>
 </div>
 
 {% if selected_customer %}
+
+<!-- Aktif filtre göstergesi -->
+{% if is_filtered %}
+<div class="active-filter-bar">
+    <span class="af-label"><i class="fas fa-filter me-1"></i>Filtreli görünüm:</span>
+    {% if filter_period_label %}<span class="af-chip"><i class="fas fa-calendar-alt me-1"></i>{{ filter_period_label }}</span>{% endif %}
+    {% if filter_date_from or filter_date_to %}
+        <span class="af-chip"><i class="fas fa-calendar me-1"></i>{{ filter_date_from|default:'...' }} → {{ filter_date_to|default:'...' }}</span>
+    {% endif %}
+    {% if filter_product_label %}<span class="af-chip"><i class="fas fa-box me-1"></i>{{ filter_product_label }}</span>{% endif %}
+    {% for lbl in filter_islem_labels %}<span class="af-chip">{{ lbl }}</span>{% endfor %}
+    <a href="{% url 'statement' %}?customer={{ selected_customer.id }}" class="af-clear">
+        <i class="fas fa-times me-1"></i>Filtreleri kaldır
+    </a>
+</div>
+{% endif %}
 
 <!-- Özet: 4 mini kart -->
 <div class="summary-row">
@@ -97,6 +262,9 @@
         <div>
             <div class="s-label">Satışlar</div>
             <div class="s-val blue">₺{{ summary.sales }}</div>
+            {% if summary.sale_qty %}
+            <div style="font-size:.72rem;color:var(--sub);margin-top:3px;"><i class="fas fa-weight-hanging me-1" style="opacity:.6;"></i>{{ summary.sale_qty }}</div>
+            {% endif %}
         </div>
     </div>
     <div class="summary-card">
@@ -104,6 +272,9 @@
         <div>
             <div class="s-label">Alışlar</div>
             <div class="s-val orange">₺{{ summary.purchases }}</div>
+            {% if summary.purchase_qty %}
+            <div style="font-size:.72rem;color:var(--sub);margin-top:3px;"><i class="fas fa-weight-hanging me-1" style="opacity:.6;"></i>{{ summary.purchase_qty }}</div>
+            {% endif %}
         </div>
     </div>
     <div class="summary-card">
@@ -128,11 +299,19 @@
         <div class="net-label"><i class="fas fa-balance-scale me-1"></i>Net Bakiye</div>
         <div class="net-formula">Satış − Alış − Tahsilat + Ödeme</div>
     </div>
-    <div class="net-val {% if summary.net_raw >= 0 %}pos{% else %}neg{% endif %}">
-        {% if summary.net_raw < 0 %}−{% endif %}₺{{ summary.net }}
-        <span style="font-size:.75rem;font-weight:500;margin-left:6px;opacity:.6;">
-            {% if summary.net_raw >= 0 %}Cari borçlu{% else %}Biz borçluyuz{% endif %}
-        </span>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div class="net-val {% if summary.net_raw >= 0 %}pos{% else %}neg{% endif %}">
+            {% if summary.net_raw < 0 %}−{% endif %}₺{{ summary.net }}
+            <span style="font-size:.75rem;font-weight:500;margin-left:6px;opacity:.6;">
+                {% if summary.net_raw >= 0 %}Cari borçlu{% else %}Biz borçluyuz{% endif %}
+            </span>
+        </div>
+        <form method="post" action="{% url 'recalculate_balance' selected_customer.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-o" style="padding:6px 12px;font-size:.77rem;" title="Bakiyeyi işlemlerden sıfırdan hesapla">
+                <i class="fas fa-sync-alt me-1"></i>Bakiyeyi Yeniden Hesapla
+            </button>
+        </form>
     </div>
 </div>
 
@@ -210,10 +389,14 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7">
+                    <td colspan="8">
                         <div class="empty-state">
                             <i class="fas fa-inbox"></i>
-                            Bu cariye ait henüz kayıt bulunmamaktadır.
+                            {% if is_filtered %}
+                                Seçilen filtrelere uygun kayıt bulunamadı.
+                            {% else %}
+                                Bu cariye ait henüz kayıt bulunmamaktadır.
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -239,10 +422,50 @@
 {% block extra_js %}
 <script>
 function applyFilter() {
-    const val = document.getElementById('customerSelect').value;
-    window.location.href = val
-        ? '{% url "statement" %}?customer=' + val
-        : '{% url "statement" %}';
+    const customer   = document.getElementById('customerSelect').value;
+    const period     = document.getElementById('periodSelect').value;
+    const dateFrom   = document.getElementById('dateFrom').value;
+    const dateTo     = document.getElementById('dateTo').value;
+    const product    = document.getElementById('productSelect').value;
+    const islemTuru  = [...document.querySelectorAll('input[name="islem_turu"]:checked')].map(cb => cb.value);
+
+    const params = new URLSearchParams();
+    if (customer) params.set('customer', customer);
+    if (period) {
+        params.set('period', period);
+    } else {
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo)   params.set('date_to',   dateTo);
+    }
+    if (product) params.set('product', product);
+    islemTuru.forEach(v => params.append('islem_turu', v));
+
+    window.location.href = '{% url "statement" %}?' + params.toString();
+}
+
+function onPeriodChange() {
+    const period = document.getElementById('periodSelect').value;
+    const df = document.getElementById('dateFrom');
+    const dt = document.getElementById('dateTo');
+    if (period) {
+        df.value = ''; dt.value = '';
+        df.disabled = true; dt.disabled = true;
+    } else {
+        df.disabled = false; dt.disabled = false;
+    }
+}
+
+function onDateChange() {
+    document.getElementById('periodSelect').value = '';
+}
+
+function updatePill(input, activeClass) {
+    const label = input.closest('.check-pill');
+    if (input.checked) {
+        label.classList.add(activeClass);
+    } else {
+        label.classList.remove(activeClass);
+    }
 }
 </script>
 {% endblock %}

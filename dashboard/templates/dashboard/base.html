@@ -261,6 +261,9 @@
         <a href="{% url 'transaction_create' %}" class="sb-item {% if cur == 'transaction_create' %}active{% endif %}">
             <i class="fas fa-plus-circle"></i> İşlem Ekle
         </a>
+        <a href="{% url 'product_list' %}" class="sb-item {% if cur == 'product_list' %}active{% endif %}">
+            <i class="fas fa-boxes"></i> Ürünler
+        </a>
         <a href="{% url 'field_list' %}" class="sb-item {% if cur == 'field_list' or cur == 'field_detail' or cur == 'field_create' or cur == 'field_edit' %}active{% endif %}">
             <i class="fas fa-tractor"></i> Tarlalarım
         </a>
