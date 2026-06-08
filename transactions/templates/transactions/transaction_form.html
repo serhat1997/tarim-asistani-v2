@@ -37,10 +37,14 @@
         margin-bottom: 20px; transition: border-color .2s;
     }
     .total-preview.active { border-color: var(--primary-light); background: rgba(64,145,108,.05); }
+    .total-preview.hal-active { border-color: #d97706 !important; background: rgba(245,158,11,.05) !important; }
     .total-preview-label { font-size: .78rem; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: .4px; }
-    .total-preview-val { font-size: 1.4rem; font-weight: 800; color: var(--sub); transition: color .2s; }
+    .total-preview-val { font-size: 1.4rem; font-weight: 800; color: var(--sub); transition: color .2s; text-align:right; }
     .total-preview-val.ready { color: var(--primary-light); }
+    .total-preview-val.hal-ready { color: #d97706 !important; }
     .total-preview-formula { font-size: .76rem; color: var(--sub); margin-top: 2px; }
+    .commission-row { display:none; margin-top:7px; padding-top:7px; border-top:1px dashed rgba(217,119,6,.3); font-size:.78rem; color:#d97706; font-weight:600; }
+    .net-label { display:none; font-size:.65rem; font-weight:700; color:#d97706; text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; }
 
     @media (max-width:640px) { .field-3,.field-2 { grid-template-columns: 1fr; } .type-selector { grid-template-columns: 1fr; } }
 </style>
@@ -125,11 +129,18 @@
 
             <!-- Hesaplanan Tutar -->
             <div class="total-preview" id="totalPreview">
-                <div>
+                <div style="flex:1;">
                     <div class="total-preview-label"><i class="fas fa-calculator me-1"></i>Hesaplanan Tutar</div>
                     <div class="total-preview-formula" id="totalFormula">Miktar ve birim fiyat girin</div>
+                    <div class="commission-row" id="commissionRow">
+                        <i class="fas fa-store me-1"></i>Hal Komisyonu (%2): <span id="commissionVal"></span>
+                        &nbsp;·&nbsp; Net: <span id="netVal"></span>
+                    </div>
                 </div>
-                <div class="total-preview-val" id="totalVal">—</div>
+                <div>
+                    <div class="net-label" id="netLabel">NET TUTAR</div>
+                    <div class="total-preview-val" id="totalVal">—</div>
+                </div>
             </div>
 
             <div class="field-3 mb-3">
@@ -229,13 +240,14 @@
 
 {% block extra_js %}
 <script>
-    const saleOpts     = {{ sale_products|safe }}.map(p => ({v: p.slug, l: p.name, u: p.default_unit}));
-    const purchaseOpts = {{ purchase_products|safe }}.map(p => ({v: p.slug, l: p.name, u: p.default_unit}));
-    const productSel   = document.getElementById('product');
-    const qtyInp       = document.getElementById('quantity');
-    const priceInp     = document.getElementById('unit_price');
-    const initType     = "{{ selected_type|default:'' }}";
-    const initProd     = "{{ selected_product|default:'' }}";
+    const saleOpts      = {{ sale_products|safe }}.map(p => ({v: p.slug, l: p.name, u: p.default_unit}));
+    const purchaseOpts  = {{ purchase_products|safe }}.map(p => ({v: p.slug, l: p.name, u: p.default_unit}));
+    const customerTypes = {{ customer_types_json|safe }};
+    const productSel    = document.getElementById('product');
+    const qtyInp        = document.getElementById('quantity');
+    const priceInp      = document.getElementById('unit_price');
+    const initType      = "{{ selected_type|default:'' }}";
+    const initProd      = "{{ selected_product|default:'' }}";
 
     function fillProducts() {
         const checked = document.querySelector('input[name="type"]:checked');
@@ -278,20 +290,54 @@
         el.value = d !== undefined ? `${fi},${d}` : fi;
     }
 
+    function isHalSale() {
+        const custSel = document.querySelector('select[name="customer"]');
+        const typeCk  = document.querySelector('input[name="type"]:checked');
+        return !!(custSel && typeCk && typeCk.value === 'sale' && customerTypes[custSel.value] === 'hal');
+    }
+
     function updateTotal() {
         const qty   = parseLocal(qtyInp.value);
         const price = parseLocal(priceInp.value);
+        const commRow  = document.getElementById('commissionRow');
+        const commVal  = document.getElementById('commissionVal');
+        const netVal   = document.getElementById('netVal');
+        const netLabel = document.getElementById('netLabel');
+
         if (qty > 0 && price > 0) {
-            const total = qty * price;
-            totalVal.textContent     = '₺' + fmtTR(total);
+            const gross  = qty * price;
+            const halSale = isHalSale();
+            const commission = halSale ? Math.round(gross * 0.02 * 100) / 100 : 0;
+            const net    = gross - commission;
+
             totalFormula.textContent = fmtTR(qty) + ' × ₺' + fmtTR(price);
-            totalVal.classList.add('ready');
-            totalPreview.classList.add('active');
+
+            if (halSale) {
+                commRow.style.display  = 'block';
+                netLabel.style.display = 'block';
+                commVal.textContent    = '-₺' + fmtTR(commission);
+                netVal.textContent     = '₺' + fmtTR(net);
+                totalVal.textContent   = '₺' + fmtTR(net);
+                totalVal.classList.remove('ready');
+                totalVal.classList.add('hal-ready');
+                totalPreview.classList.remove('active');
+                totalPreview.classList.add('hal-active');
+            } else {
+                commRow.style.display  = 'none';
+                netLabel.style.display = 'none';
+                totalVal.textContent   = '₺' + fmtTR(gross);
+                totalVal.classList.add('ready');
+                totalVal.classList.remove('hal-ready');
+                totalPreview.classList.add('active');
+                totalPreview.classList.remove('hal-active');
+            }
         } else {
             totalVal.textContent     = '—';
             totalFormula.textContent = 'Miktar ve birim fiyat girin';
-            totalVal.classList.remove('ready');
-            totalPreview.classList.remove('active');
+            totalVal.classList.remove('ready', 'hal-ready');
+            totalPreview.classList.remove('active', 'hal-active');
+            document.getElementById('commissionRow').style.display  = 'none';
+            document.getElementById('netLabel').style.display = 'none';
         }
     }
 
@@ -337,7 +383,8 @@
             document.getElementById('inv_name').value = this.selectedOptions[0].text;
         }
     });
-    document.querySelectorAll('input[name="type"]').forEach(r => r.addEventListener('change', () => { fillProducts(); updateInvToggle(); }));
+    document.querySelector('select[name="customer"]').addEventListener('change', updateTotal);
+    document.querySelectorAll('input[name="type"]').forEach(r => r.addEventListener('change', () => { fillProducts(); updateInvToggle(); updateTotal(); }));
     qtyInp.addEventListener('input', updateTotal);
     qtyInp.addEventListener('blur',  () => { fmtNum(qtyInp); updateTotal(); });
     priceInp.addEventListener('input', updateTotal);

@@ -103,15 +103,19 @@ def transaction_create(request):
     sale_products     = list(Product.objects.filter(product_type__in=['sale', 'both'], active=True).values('slug', 'name', 'default_unit'))
     purchase_products = list(Product.objects.filter(product_type__in=['purchase', 'both'], active=True).values('slug', 'name', 'default_unit'))
 
+    import json
+    customer_types_json = json.dumps({str(c.id): c.customer_type for c in customers})
+
     return render(request, 'transactions/transaction_form.html', {
-        'customers':          customers,
-        'fields':             fields,
-        'selected_type':      selected_type,
-        'selected_product':   selected_product,
-        'sale_products':      sale_products,
-        'purchase_products':  purchase_products,
-        'inv_categories': INV_CATEGORIES,
-        'inv_items': inv_items,
+        'customers':            customers,
+        'fields':               fields,
+        'selected_type':        selected_type,
+        'selected_product':     selected_product,
+        'sale_products':        sale_products,
+        'purchase_products':    purchase_products,
+        'inv_categories':       INV_CATEGORIES,
+        'inv_items':            inv_items,
+        'customer_types_json':  customer_types_json,
     })
 
 
