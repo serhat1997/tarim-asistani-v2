@@ -36,11 +36,24 @@
         <form method="post">
             {% csrf_token %}
 
-            <div class="mb-3">
-                <label class="form-label">Ad Soyad / Firma Adı <span style="color:#dc2626;">*</span></label>
-                <input type="text" name="name" class="form-control"
-                    value="{{ form_data.name|default:'' }}"
-                    placeholder="Cari adını giriniz" required>
+            <div class="field-row mb-3">
+                <div>
+                    <label class="form-label">Ad Soyad / Firma Adı <span style="color:#dc2626;">*</span></label>
+                    <input type="text" name="name" class="form-control"
+                        value="{{ form_data.name|default:'' }}"
+                        placeholder="Cari adını giriniz" required>
+                </div>
+                <div>
+                    <label class="form-label">Cari Türü <span style="color:#dc2626;">*</span></label>
+                    <select name="customer_type" class="form-select" required>
+                        <option value="hal"     {% if form_data.customer_type == 'hal'     %}selected{% endif %}>Hal <span style="font-size:.8rem;opacity:.7;">(satışta %2 kesinti)</span></option>
+                        <option value="pazarci" {% if form_data.customer_type == 'pazarci' %}selected{% endif %}>Pazarcı</option>
+                        <option value="diger"   {% if form_data.customer_type == 'diger' or not form_data.customer_type %}selected{% endif %}>Diğer</option>
+                    </select>
+                    {% if form_data.customer_type == 'hal' %}
+                    <div style="font-size:.74rem;color:#d97706;margin-top:5px;"><i class="fas fa-info-circle me-1"></i>Hal carilerine yapılan satışlarda tutar %2 düşülerek net tutar hesaplanır.</div>
+                    {% endif %}
+                </div>
             </div>
 
             <div class="field-row mb-3">

@@ -80,11 +80,16 @@ class Transaction(models.Model):
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
-        self.amount = self.quantity * self.unit_price
+        gross = self.quantity * self.unit_price
+        # Hal müşterisine satışta %2 komisyon kesintisi uygulanır
+        if self.type == 'sale' and self.customer.customer_type == 'hal':
+            from decimal import Decimal
+            self.amount = (gross * (Decimal('1') - Customer.HAL_COMMISSION)).quantize(Decimal('0.01'))
+        else:
+            self.amount = gross
         with db_transaction.atomic():
             super().save(*args, **kwargs)
             if is_new:
-                # Yeni kayıt → bakiyeyi güncelle
                 if self.type == 'sale':
                     Customer.objects.filter(pk=self.customer_id).update(
                         balance=models.F('balance') + self.amount)

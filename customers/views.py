@@ -33,16 +33,17 @@ def customer_list(request):
 def customer_create(request):
     errors = []
     form_data = {
-        'name': '', 'tc_vkn': '', 'phone': '', 'email': '', 'address': '',
+        'name': '', 'tc_vkn': '', 'phone': '', 'email': '', 'address': '', 'customer_type': 'diger',
     }
 
     if request.method == 'POST':
         form_data = {
-            'name':    request.POST.get('name', '').strip(),
-            'tc_vkn':  request.POST.get('tc_vkn', '').strip(),
-            'phone':   request.POST.get('phone', '').strip(),
-            'email':   request.POST.get('email', '').strip(),
-            'address': request.POST.get('address', '').strip(),
+            'name':          request.POST.get('name', '').strip(),
+            'tc_vkn':        request.POST.get('tc_vkn', '').strip(),
+            'phone':         request.POST.get('phone', '').strip(),
+            'email':         request.POST.get('email', '').strip(),
+            'address':       request.POST.get('address', '').strip(),
+            'customer_type': request.POST.get('customer_type', 'diger'),
         }
         if not form_data['name']:
             errors.append('Ad Soyad / Firma Adı zorunludur.')
@@ -66,20 +67,22 @@ def customer_edit(request, pk):
 
     errors = []
     form_data = {
-        'name':    customer.name,
-        'tc_vkn':  customer.tc_vkn,
-        'phone':   customer.phone,
-        'email':   customer.email,
-        'address': customer.address,
+        'name':          customer.name,
+        'tc_vkn':        customer.tc_vkn,
+        'phone':         customer.phone,
+        'email':         customer.email,
+        'address':       customer.address,
+        'customer_type': customer.customer_type,
     }
 
     if request.method == 'POST':
         form_data = {
-            'name':    request.POST.get('name', '').strip(),
-            'tc_vkn':  request.POST.get('tc_vkn', '').strip(),
-            'phone':   request.POST.get('phone', '').strip(),
-            'email':   request.POST.get('email', '').strip(),
-            'address': request.POST.get('address', '').strip(),
+            'name':          request.POST.get('name', '').strip(),
+            'tc_vkn':        request.POST.get('tc_vkn', '').strip(),
+            'phone':         request.POST.get('phone', '').strip(),
+            'email':         request.POST.get('email', '').strip(),
+            'address':       request.POST.get('address', '').strip(),
+            'customer_type': request.POST.get('customer_type', 'diger'),
         }
         if not form_data['name']:
             errors.append('Ad Soyad / Firma Adı zorunludur.')
