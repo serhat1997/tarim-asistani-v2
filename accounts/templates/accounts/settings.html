@@ -1,0 +1,461 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Ayarlar{% endblock %}
+{% block page_title %}Ayarlar{% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-wrap { max-width: 860px; }
+
+    /* ─── Profil kartı (üst) ─── */
+    .profile-hero {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 24px 28px;
+        display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+        margin-bottom: 24px;
+    }
+    .ph-avatar {
+        width: 68px; height: 68px; border-radius: 18px; flex-shrink: 0;
+        background: linear-gradient(135deg, var(--primary), var(--primary-light));
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.9rem; font-weight: 800; color: #fff;
+    }
+    .ph-name   { font-size: 1.1rem; font-weight: 800; margin-bottom: 3px; }
+    .ph-meta   { font-size: .82rem; color: var(--sub); display: flex; gap: 12px; flex-wrap: wrap; }
+    .ph-badge  {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 3px 10px; border-radius: 999px; font-size: .72rem; font-weight: 700;
+    }
+    .ph-badge.admin { background: rgba(245,158,11,.12); color: #b45309; }
+    .ph-badge.user  { background: rgba(64,145,108,.1);  color: #166534; }
+    .ph-stats {
+        margin-left: auto; display: flex; gap: 28px; text-align: center; flex-wrap: wrap;
+    }
+    .ph-stat-val  { font-size: 1.2rem; font-weight: 800; color: var(--text); }
+    .ph-stat-lbl  { font-size: .68rem; font-weight: 600; color: var(--sub); text-transform: uppercase; letter-spacing: .4px; }
+
+    /* ─── Tab ─── */
+    .tab-bar {
+        display: flex; gap: 4px;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 22px;
+    }
+    .tab-btn {
+        padding: 9px 20px; font-size: .86rem; font-weight: 600;
+        border: none; background: none; cursor: pointer;
+        color: var(--sub); border-bottom: 2px solid transparent;
+        margin-bottom: -2px; transition: color .15s, border-color .15s;
+    }
+    .tab-btn.active { color: var(--primary-light); border-bottom-color: var(--primary-light); }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ─── Section card ─── */
+    .set-card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 24px 28px; margin-bottom: 18px;
+    }
+    .set-card-title {
+        font-size: .92rem; font-weight: 700; margin-bottom: 4px;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .set-card-sub { font-size: .82rem; color: var(--sub); margin-bottom: 20px; }
+    .field-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .set-actions { display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+    /* ─── Alert inline ─── */
+    .set-alert {
+        border-radius: 10px; padding: 10px 14px; font-size: .85rem;
+        display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+    }
+    .set-alert.ok  { background: rgba(34,197,94,.08);  color: #166534; border: 1px solid rgba(34,197,94,.2); }
+    .set-alert.err { background: rgba(239,68,68,.08);  color: #991b1b; border: 1px solid rgba(239,68,68,.2); }
+
+    /* ─── Info row ─── */
+    .info-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px 0; border-bottom: 1px solid var(--border);
+        font-size: .88rem;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-row-label { color: var(--sub); font-weight: 600; font-size: .82rem; }
+    .info-row-val   { font-weight: 600; }
+
+    /* ─── Tehlikeli alan ─── */
+    .danger-card {
+        background: rgba(239,68,68,.04); border: 1.5px solid rgba(239,68,68,.2);
+        border-radius: var(--radius); padding: 22px 26px;
+    }
+    .danger-card-title { font-size: .9rem; font-weight: 700; color: #dc2626; margin-bottom: 4px; }
+    .danger-card-sub   { font-size: .82rem; color: var(--sub); margin-bottom: 16px; }
+
+    /* ─── Şifre güç göstergesi ─── */
+    .pw-strength { height: 3px; border-radius: 99px; margin-top: 6px; background: var(--border); overflow: hidden; }
+    .pw-strength-bar { height: 100%; width: 0; border-radius: 99px; transition: width .3s, background .3s; }
+    .pw-strength-lbl { font-size: .72rem; color: var(--sub); margin-top: 3px; }
+
+    @media (max-width: 640px) {
+        .field-2 { grid-template-columns: 1fr; }
+        .ph-stats { margin-left: 0; gap: 18px; }
+        .set-card { padding: 18px 16px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-wrap">
+
+    <!-- ─── Profil Hero ─── -->
+    <div class="profile-hero">
+        <div class="ph-avatar">{{ request.user.username|first|upper }}</div>
+        <div>
+            <div class="ph-name">
+                {% if request.user.get_full_name %}{{ request.user.get_full_name }}{% else %}{{ request.user.username }}{% endif %}
+            </div>
+            <div class="ph-meta">
+                <span><i class="fas fa-user me-1"></i>@{{ request.user.username }}</span>
+                {% if request.user.email %}<span><i class="fas fa-envelope me-1"></i>{{ request.user.email }}</span>{% endif %}
+                {% if profile.phone %}<span><i class="fas fa-phone me-1"></i>{{ profile.phone }}</span>{% endif %}
+            </div>
+            <div style="margin-top:8px;">
+                {% if request.user.is_staff %}
+                <span class="ph-badge admin"><i class="fas fa-shield-alt"></i> Yönetici</span>
+                {% else %}
+                <span class="ph-badge user"><i class="fas fa-user-check"></i> Kullanıcı</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="ph-stats">
+            <div>
+                <div class="ph-stat-val">{{ request.user.date_joined|date:"d.m.Y" }}</div>
+                <div class="ph-stat-lbl">Kayıt Tarihi</div>
+            </div>
+            <div>
+                <div class="ph-stat-val">{% if request.user.last_login %}{{ request.user.last_login|date:"d.m.Y" }}{% else %}—{% endif %}</div>
+                <div class="ph-stat-lbl">Son Giriş</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Tabs ─── -->
+    <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('profile',this)">
+            <i class="fas fa-user me-1"></i> Profil
+        </button>
+        <button class="tab-btn" onclick="switchTab('security',this)">
+            <i class="fas fa-lock me-1"></i> Güvenlik
+        </button>
+        <button class="tab-btn" onclick="switchTab('account',this)">
+            <i class="fas fa-info-circle me-1"></i> Hesap
+        </button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- TAB 1 — Profil -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div id="tab-profile" class="tab-pane active">
+
+        {% if success.profile %}
+        <div class="set-alert ok"><i class="fas fa-check-circle"></i> {{ success.profile }}</div>
+        {% endif %}
+        {% if errors.profile %}
+        <div class="set-alert err"><i class="fas fa-exclamation-circle"></i> {{ errors.profile }}</div>
+        {% endif %}
+
+        <div class="set-card">
+            <div class="set-card-title"><i class="fas fa-id-card" style="color:var(--primary-light);"></i> Kişisel Bilgiler</div>
+            <div class="set-card-sub">Adınız, e-posta ve telefon bilgilerinizi güncelleyin.</div>
+
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="profile">
+
+                <div class="field-2 mb-3">
+                    <div>
+                        <label class="form-label">Ad</label>
+                        <input type="text" name="first_name" class="form-control"
+                            value="{{ request.user.first_name }}" placeholder="Adınız">
+                    </div>
+                    <div>
+                        <label class="form-label">Soyad</label>
+                        <input type="text" name="last_name" class="form-control"
+                            value="{{ request.user.last_name }}" placeholder="Soyadınız">
+                    </div>
+                </div>
+                <div class="field-2 mb-3">
+                    <div>
+                        <label class="form-label">E-posta</label>
+                        <input type="email" name="email" class="form-control"
+                            value="{{ request.user.email }}" placeholder="ornek@mail.com">
+                    </div>
+                    <div>
+                        <label class="form-label">Telefon</label>
+                        <input type="text" name="phone" class="form-control"
+                            value="{{ profile.phone }}" placeholder="05xx xxx xxxx">
+                    </div>
+                </div>
+
+                <div class="set-actions">
+                    <button type="submit" class="btn-g"><i class="fas fa-save"></i> Bilgileri Kaydet</button>
+                </div>
+            </form>
+        </div>
+
+    </div><!-- /tab-profile -->
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- TAB 2 — Güvenlik -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div id="tab-security" class="tab-pane">
+
+        <!-- Kullanıcı adı -->
+        {% if success.username %}
+        <div class="set-alert ok"><i class="fas fa-check-circle"></i> {{ success.username }}</div>
+        {% endif %}
+        {% if errors.username %}
+        <div class="set-alert err"><i class="fas fa-exclamation-circle"></i> {{ errors.username }}</div>
+        {% endif %}
+
+        <div class="set-card" style="margin-bottom:18px;">
+            <div class="set-card-title"><i class="fas fa-at" style="color:#3b82f6;"></i> Kullanıcı Adı Değiştir</div>
+            <div class="set-card-sub">Yeni kullanıcı adınız giriş ekranında ve sistemde görünür.</div>
+
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="username">
+
+                <div class="field-2 mb-3">
+                    <div>
+                        <label class="form-label">Mevcut Kullanıcı Adı</label>
+                        <input type="text" class="form-control" value="{{ request.user.username }}" disabled
+                            style="opacity:.6;cursor:not-allowed;">
+                    </div>
+                    <div>
+                        <label class="form-label">Yeni Kullanıcı Adı <span style="color:#dc2626;">*</span></label>
+                        <input type="text" name="new_username" class="form-control"
+                            placeholder="yeni_kullanici_adi" autocomplete="username" minlength="3">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mevcut Şifreniz (onay için) <span style="color:#dc2626;">*</span></label>
+                    <input type="password" name="current_password_u" class="form-control"
+                        placeholder="••••••••" autocomplete="current-password" required>
+                </div>
+
+                <div class="set-actions">
+                    <button type="submit" class="btn-g"><i class="fas fa-at"></i> Kullanıcı Adını Güncelle</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Şifre değiştir -->
+        {% if success.password %}
+        <div class="set-alert ok"><i class="fas fa-check-circle"></i> {{ success.password }}</div>
+        {% endif %}
+        {% if errors.password %}
+        <div class="set-alert err"><i class="fas fa-exclamation-circle"></i> {{ errors.password }}</div>
+        {% endif %}
+
+        <div class="set-card">
+            <div class="set-card-title"><i class="fas fa-key" style="color:#d97706;"></i> Şifre Değiştir</div>
+            <div class="set-card-sub">Güçlü bir şifre hesabınızı korur. En az 6 karakter kullanın.</div>
+
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="password">
+
+                <div class="mb-3">
+                    <label class="form-label">Mevcut Şifre <span style="color:#dc2626;">*</span></label>
+                    <input type="password" name="current_password" class="form-control"
+                        placeholder="••••••••" autocomplete="current-password" required>
+                </div>
+                <div class="field-2 mb-3">
+                    <div>
+                        <label class="form-label">Yeni Şifre <span style="color:#dc2626;">*</span></label>
+                        <input type="password" name="new_password" id="newPw" class="form-control"
+                            placeholder="••••••••" autocomplete="new-password"
+                            required oninput="checkPwStrength(this.value)">
+                        <div class="pw-strength"><div class="pw-strength-bar" id="pwBar"></div></div>
+                        <div class="pw-strength-lbl" id="pwLbl">Şifre gücü</div>
+                    </div>
+                    <div>
+                        <label class="form-label">Yeni Şifre (Tekrar) <span style="color:#dc2626;">*</span></label>
+                        <input type="password" name="confirm_password" id="confPw" class="form-control"
+                            placeholder="••••••••" autocomplete="new-password"
+                            required oninput="checkPwMatch()">
+                        <div style="font-size:.72rem;margin-top:4px;" id="pwMatchLbl"></div>
+                    </div>
+                </div>
+
+                <div class="set-actions">
+                    <button type="submit" class="btn-g"><i class="fas fa-key"></i> Şifreyi Güncelle</button>
+                </div>
+            </form>
+        </div>
+
+    </div><!-- /tab-security -->
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- TAB 3 — Hesap -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div id="tab-account" class="tab-pane">
+
+        <div class="set-card" style="margin-bottom:18px;">
+            <div class="set-card-title"><i class="fas fa-info-circle" style="color:var(--primary-light);"></i> Hesap Bilgileri</div>
+            <div class="set-card-sub">Hesabınıza ait genel bilgiler.</div>
+
+            <div class="info-row">
+                <span class="info-row-label"><i class="fas fa-user me-2"></i>Kullanıcı Adı</span>
+                <span class="info-row-val" style="font-family:monospace;">{{ request.user.username }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-row-label"><i class="fas fa-envelope me-2"></i>E-posta</span>
+                <span class="info-row-val">{{ request.user.email|default:'—' }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-row-label"><i class="fas fa-shield-alt me-2"></i>Hesap Türü</span>
+                <span class="info-row-val">
+                    {% if request.user.is_staff %}
+                    <span class="ph-badge admin"><i class="fas fa-shield-alt"></i> Yönetici</span>
+                    {% else %}
+                    <span class="ph-badge user"><i class="fas fa-user-check"></i> Standart Kullanıcı</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-row-label"><i class="fas fa-calendar-plus me-2"></i>Kayıt Tarihi</span>
+                <span class="info-row-val">{{ request.user.date_joined|date:"d F Y, H:i" }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-row-label"><i class="fas fa-clock me-2"></i>Son Giriş</span>
+                <span class="info-row-val">
+                    {% if request.user.last_login %}{{ request.user.last_login|date:"d F Y, H:i" }}{% else %}—{% endif %}
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-row-label"><i class="fas fa-toggle-on me-2"></i>Hesap Durumu</span>
+                <span class="info-row-val">
+                    {% if request.user.is_active %}
+                    <span style="color:#16a34a;font-weight:700;"><i class="fas fa-check-circle me-1"></i>Aktif</span>
+                    {% else %}
+                    <span style="color:#dc2626;font-weight:700;"><i class="fas fa-times-circle me-1"></i>Askıya Alındı</span>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        <!-- Görünüm Tercihi -->
+        <div class="set-card" style="margin-bottom:18px;">
+            <div class="set-card-title"><i class="fas fa-palette" style="color:#8b5cf6;"></i> Görünüm</div>
+            <div class="set-card-sub">Arayüz temasını değiştirin. Seçiminiz tarayıcıda kaydedilir.</div>
+
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <button class="theme-choice" id="choiceLight" onclick="setTheme('light')"
+                    style="flex:1;min-width:140px;padding:16px;border-radius:12px;border:2px solid var(--border);
+                    background:var(--surface);cursor:pointer;transition:border-color .15s;">
+                    <i class="fas fa-sun" style="font-size:1.4rem;color:#d97706;display:block;margin-bottom:8px;"></i>
+                    <div style="font-size:.85rem;font-weight:700;color:var(--text);">Açık Tema</div>
+                    <div style="font-size:.75rem;color:var(--sub);">Beyaz arka plan</div>
+                </button>
+                <button class="theme-choice" id="choiceDark" onclick="setTheme('dark')"
+                    style="flex:1;min-width:140px;padding:16px;border-radius:12px;border:2px solid var(--border);
+                    background:var(--surface);cursor:pointer;transition:border-color .15s;">
+                    <i class="fas fa-moon" style="font-size:1.4rem;color:#6366f1;display:block;margin-bottom:8px;"></i>
+                    <div style="font-size:.85rem;font-weight:700;color:var(--text);">Koyu Tema</div>
+                    <div style="font-size:.75rem;color:var(--sub);">Göz yormayan koyu mod</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tehlikeli Alan -->
+        <div class="danger-card">
+            <div class="danger-card-title"><i class="fas fa-exclamation-triangle me-2"></i>Tehlikeli Alan</div>
+            <div class="danger-card-sub">
+                Hesabınızı sildiğinizde tüm verileriniz (cariler, işlemler, ödemeler) kalıcı olarak silinir.
+                Bu işlem geri alınamaz.
+            </div>
+            <a href="{% url 'account_delete' %}" class="btn-danger-soft" style="font-size:.86rem;">
+                <i class="fas fa-user-slash"></i> Hesabımı Sil
+            </a>
+        </div>
+
+    </div><!-- /tab-account -->
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function switchTab(name, btn) {
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+}
+
+/* Şifre güç göstergesi */
+function checkPwStrength(pw) {
+    const bar = document.getElementById('pwBar');
+    const lbl = document.getElementById('pwLbl');
+    let score = 0;
+    if (pw.length >= 6)  score++;
+    if (pw.length >= 10) score++;
+    if (/[A-Z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+    const levels = [
+        { w: '0%',   c: 'transparent', t: 'Şifre gücü' },
+        { w: '25%',  c: '#ef4444',     t: 'Çok zayıf' },
+        { w: '45%',  c: '#f97316',     t: 'Zayıf' },
+        { w: '65%',  c: '#eab308',     t: 'Orta' },
+        { w: '82%',  c: '#22c55e',     t: 'İyi' },
+        { w: '100%', c: '#16a34a',     t: 'Güçlü' },
+    ];
+    const l = levels[Math.min(score, 5)];
+    bar.style.width = l.w;
+    bar.style.background = l.c;
+    lbl.style.color = l.c === 'transparent' ? 'var(--sub)' : l.c;
+    lbl.textContent = l.t;
+}
+
+/* Şifre eşleşme kontrolü */
+function checkPwMatch() {
+    const pw1 = document.getElementById('newPw').value;
+    const pw2 = document.getElementById('confPw').value;
+    const lbl = document.getElementById('pwMatchLbl');
+    if (!pw2) { lbl.textContent = ''; return; }
+    if (pw1 === pw2) {
+        lbl.style.color = '#16a34a';
+        lbl.innerHTML = '<i class="fas fa-check me-1"></i>Şifreler eşleşiyor';
+    } else {
+        lbl.style.color = '#ef4444';
+        lbl.innerHTML = '<i class="fas fa-times me-1"></i>Şifreler eşleşmiyor';
+    }
+}
+
+/* Tema seçim kartları */
+function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('cari-theme', t);
+    const btn = document.getElementById('themeBtn');
+    if (btn) btn.innerHTML = t === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    highlightThemeChoice(t);
+}
+function highlightThemeChoice(t) {
+    document.getElementById('choiceLight').style.borderColor = t === 'light' ? 'var(--primary-light)' : 'var(--border)';
+    document.getElementById('choiceDark').style.borderColor  = t === 'dark'  ? 'var(--primary-light)' : 'var(--border)';
+}
+(function() {
+    const t = localStorage.getItem('cari-theme') || 'light';
+    highlightThemeChoice(t);
+})();
+
+/* Aktif tab hatırlama (hata/başarı mesajı hangi tabda ise onu aç) */
+{% if success.username or errors.username or success.password or errors.password %}
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelector('[onclick="switchTab(\'security\',this)"]').click();
+});
+{% elif success.profile or errors.profile %}
+/* profil tab zaten varsayılan */
+{% endif %}
+</script>
+{% endblock %}

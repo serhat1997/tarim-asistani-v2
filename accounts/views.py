@@ -221,6 +221,73 @@ def reset_password_view(request, token):
 
 
 @login_required
+def settings_view(request):
+    from django.contrib.auth import update_session_auth_hash
+    user    = request.user
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+
+    success = {}
+    errors  = {}
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+
+        if action == 'profile':
+            first_name = request.POST.get('first_name', '').strip()
+            last_name  = request.POST.get('last_name', '').strip()
+            email      = request.POST.get('email', '').strip()
+            phone      = request.POST.get('phone', '').strip()
+            if email and User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists():
+                errors['profile'] = 'Bu e-posta başka bir hesapta kullanılıyor.'
+            else:
+                user.first_name = first_name
+                user.last_name  = last_name
+                user.email      = email
+                user.save(update_fields=['first_name', 'last_name', 'email'])
+                profile.phone = phone
+                profile.save(update_fields=['phone'])
+                success['profile'] = 'Profil bilgileri güncellendi.'
+
+        elif action == 'username':
+            new_username = request.POST.get('new_username', '').strip()
+            cur_pw       = request.POST.get('current_password_u', '')
+            if not user.check_password(cur_pw):
+                errors['username'] = 'Mevcut şifreniz hatalı.'
+            elif not new_username:
+                errors['username'] = 'Kullanıcı adı boş bırakılamaz.'
+            elif len(new_username) < 3:
+                errors['username'] = 'Kullanıcı adı en az 3 karakter olmalıdır.'
+            elif User.objects.filter(username=new_username).exclude(pk=user.pk).exists():
+                errors['username'] = 'Bu kullanıcı adı zaten kullanılıyor.'
+            else:
+                user.username = new_username
+                user.save(update_fields=['username'])
+                success['username'] = 'Kullanıcı adı güncellendi.'
+
+        elif action == 'password':
+            cur_pw   = request.POST.get('current_password', '')
+            new_pw   = request.POST.get('new_password', '')
+            conf_pw  = request.POST.get('confirm_password', '')
+            if not user.check_password(cur_pw):
+                errors['password'] = 'Mevcut şifreniz hatalı.'
+            elif len(new_pw) < 6:
+                errors['password'] = 'Yeni şifre en az 6 karakter olmalıdır.'
+            elif new_pw != conf_pw:
+                errors['password'] = 'Yeni şifreler eşleşmiyor.'
+            else:
+                user.set_password(new_pw)
+                user.save()
+                update_session_auth_hash(request, user)
+                success['password'] = 'Şifreniz başarıyla güncellendi.'
+
+    return render(request, 'accounts/settings.html', {
+        'profile': profile,
+        'success': success,
+        'errors':  errors,
+    })
+
+
+@login_required
 def account_delete_view(request):
     if request.method == 'POST':
         confirm = request.POST.get('confirm')

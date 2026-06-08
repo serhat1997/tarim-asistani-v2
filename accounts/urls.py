@@ -16,4 +16,5 @@ urlpatterns = [
     path('kullanicilar/<int:user_id>/sifre-degistir/', views.user_change_password_admin_view, name='user_change_password_admin'),
     path('kullanicilar/<int:user_id>/sil/', views.user_delete_admin_view, name='user_delete_admin'),
     path('hesabim/sil/', views.account_delete_view, name='account_delete'),
+    path('ayarlar/', views.settings_view, name='settings'),
 ]
