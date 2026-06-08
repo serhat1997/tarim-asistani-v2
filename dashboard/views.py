@@ -770,3 +770,168 @@ def expense_delete(request, pk):
     if request.method == 'POST':
         expense.delete()
     return redirect('expense_list')
+
+
+# ─── Karlılık Tablosu ─────────────────────────────────────────────────────────
+
+@login_required
+def profitability(request):
+    from fields.models import Field, FieldExpense
+    from transactions.models import Product as TxProduct
+    from django.db.models.functions import TruncMonth
+    import json
+
+    user = request.user
+
+    # — Filtreler —
+    date_from = request.GET.get('date_from', '').strip()
+    date_to   = request.GET.get('date_to', '').strip()
+    period    = request.GET.get('period', '').strip()
+
+    today = dt_date.today()
+    eff_from, eff_to = date_from, date_to
+
+    if period:
+        eff_from = eff_to = ''
+        if period == 'bu_ay':
+            eff_from = today.replace(day=1).isoformat()
+            eff_to   = today.isoformat()
+        elif period == 'gecen_ay':
+            first_this = today.replace(day=1)
+            last_prev  = first_this - timedelta(days=1)
+            eff_from   = last_prev.replace(day=1).isoformat()
+            eff_to     = last_prev.isoformat()
+        elif period == 'bu_yil':
+            eff_from = today.replace(month=1, day=1).isoformat()
+            eff_to   = today.isoformat()
+        elif period == 'gecen_yil':
+            eff_from = today.replace(year=today.year - 1, month=1,  day=1).isoformat()
+            eff_to   = today.replace(year=today.year - 1, month=12, day=31).isoformat()
+        elif period == 'son_30_gun':
+            eff_from = (today - timedelta(days=30)).isoformat()
+            eff_to   = today.isoformat()
+        elif period == 'son_90_gun':
+            eff_from = (today - timedelta(days=90)).isoformat()
+            eff_to   = today.isoformat()
+
+    # — Temel sorgu setleri —
+    tx_qs  = Transaction.objects.all()  if user.is_staff else Transaction.objects.filter(user=user)
+    exp_qs = Expense.objects.all()      if user.is_staff else Expense.objects.filter(user=user)
+    fe_qs  = FieldExpense.objects.all() if user.is_staff else FieldExpense.objects.filter(field__user=user)
+
+    if eff_from:
+        tx_qs  = tx_qs.filter(date__gte=eff_from)
+        exp_qs = exp_qs.filter(date__gte=eff_from)
+        fe_qs  = fe_qs.filter(date__gte=eff_from)
+    if eff_to:
+        tx_qs  = tx_qs.filter(date__lte=eff_to)
+        exp_qs = exp_qs.filter(date__lte=eff_to)
+        fe_qs  = fe_qs.filter(date__lte=eff_to)
+
+    # — Genel Özet —
+    total_sales     = tx_qs.filter(type='sale').aggregate(s=Sum('amount'))['s']     or Decimal('0')
+    total_purchases = tx_qs.filter(type='purchase').aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    total_gen_exp   = exp_qs.aggregate(s=Sum('amount'))['s']                         or Decimal('0')
+    total_field_exp = fe_qs.aggregate(s=Sum('amount'))['s']                          or Decimal('0')
+    total_expenses  = total_gen_exp + total_field_exp
+    gross_profit    = total_sales - total_purchases
+    net_profit      = gross_profit - total_expenses
+    gross_margin    = (gross_profit / total_sales * 100).quantize(Decimal('0.1')) if total_sales > 0 else Decimal('0')
+    net_margin      = (net_profit  / total_sales * 100).quantize(Decimal('0.1')) if total_sales > 0 else Decimal('0')
+
+    # Ürün bazlı satış dağılımı
+    slug_to_name = {p.slug: p.name for p in TxProduct.objects.all()}
+    product_rows = []
+    for row in tx_qs.filter(type='sale').values('product').annotate(
+            total=Sum('amount'), qty=Sum('quantity')).order_by('-total')[:10]:
+        product_rows.append({
+            'name':  slug_to_name.get(row['product'], row['product']),
+            'total': row['total'],
+            'qty':   row['qty'],
+            'pct':   float(row['total'] / total_sales * 100) if total_sales > 0 else 0,
+        })
+
+    # — Tarla Bazlı —
+    fields = Field.objects.all() if user.is_staff else Field.objects.filter(user=user)
+    field_rows = []
+    for f in fields:
+        fs  = tx_qs.filter(field=f, type='sale').aggregate(s=Sum('amount'))['s']     or Decimal('0')
+        fp  = tx_qs.filter(field=f, type='purchase').aggregate(s=Sum('amount'))['s'] or Decimal('0')
+        ffe = fe_qs.filter(field=f).aggregate(s=Sum('amount'))['s']                   or Decimal('0')
+        fge = exp_qs.filter(field=f).aggregate(s=Sum('amount'))['s']                  or Decimal('0')
+        fe_total = ffe + fge
+        fg   = fs - fp
+        fn   = fg - fe_total
+        field_rows.append({'field': f, 'sales': fs, 'purchases': fp,
+                           'expenses': fe_total, 'gross': fg, 'net': fn})
+
+    ua_sales = tx_qs.filter(field__isnull=True, type='sale').aggregate(s=Sum('amount'))['s']     or Decimal('0')
+    ua_purch = tx_qs.filter(field__isnull=True, type='purchase').aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    ua_exp   = exp_qs.filter(field__isnull=True).aggregate(s=Sum('amount'))['s']                  or Decimal('0')
+    ua_gross = ua_sales - ua_purch
+    ua_net   = ua_gross - ua_exp
+
+    # — Dönem Bazlı (Aylık) —
+    MONTHS_TR = {1:'Oca',2:'Şub',3:'Mar',4:'Nis',5:'May',6:'Haz',
+                 7:'Tem',8:'Ağu',9:'Eyl',10:'Eki',11:'Kas',12:'Ara'}
+
+    monthly = {}
+
+    def _add(rows, key):
+        for row in rows:
+            m = row.get('m')
+            if not m:
+                continue
+            k = m.strftime('%Y-%m')
+            if k not in monthly:
+                monthly[k] = {
+                    'label': f"{MONTHS_TR[m.month]} {m.year}",
+                    'sales': Decimal('0'), 'purchases': Decimal('0'),
+                    'gen_expenses': Decimal('0'), 'field_expenses': Decimal('0'),
+                }
+            monthly[k][key] += row['v'] or Decimal('0')
+
+    _add(tx_qs.filter(type='sale').annotate(m=TruncMonth('date')).values('m').annotate(v=Sum('amount')), 'sales')
+    _add(tx_qs.filter(type='purchase').annotate(m=TruncMonth('date')).values('m').annotate(v=Sum('amount')), 'purchases')
+    _add(exp_qs.annotate(m=TruncMonth('date')).values('m').annotate(v=Sum('amount')), 'gen_expenses')
+    _add(fe_qs.annotate(m=TruncMonth('date')).values('m').annotate(v=Sum('amount')), 'field_expenses')
+
+    monthly_list = []
+    for k in sorted(monthly.keys()):
+        d = monthly[k].copy()
+        d['expenses'] = d['gen_expenses'] + d['field_expenses']
+        d['gross']    = d['sales'] - d['purchases']
+        d['net']      = d['gross'] - d['expenses']
+        monthly_list.append(d)
+
+    chart_json = json.dumps({
+        'labels':   [m['label']          for m in monthly_list],
+        'sales':    [float(m['sales'])    for m in monthly_list],
+        'purchases':[float(m['purchases'])for m in monthly_list],
+        'expenses': [float(m['expenses']) for m in monthly_list],
+        'net':      [float(m['net'])      for m in monthly_list],
+    })
+
+    return render(request, 'dashboard/profitability.html', {
+        'filters': {'date_from': date_from, 'date_to': date_to,
+                    'period': period, 'eff_from': eff_from, 'eff_to': eff_to},
+        'total_sales':     total_sales,
+        'total_purchases': total_purchases,
+        'total_gen_exp':   total_gen_exp,
+        'total_field_exp': total_field_exp,
+        'total_expenses':  total_expenses,
+        'gross_profit':    gross_profit,
+        'net_profit':      net_profit,
+        'gross_margin':    gross_margin,
+        'net_margin':      net_margin,
+        'product_rows':    product_rows,
+        'field_rows':      field_rows,
+        'ua_sales':        ua_sales,
+        'ua_purch':        ua_purch,
+        'ua_exp':          ua_exp,
+        'ua_gross':        ua_gross,
+        'ua_net':          ua_net,
+        'has_unassigned':  any([ua_sales, ua_purch, ua_exp]),
+        'monthly_list':    monthly_list,
+        'chart_json':      chart_json,
+    })

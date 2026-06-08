@@ -273,6 +273,9 @@
         <a href="{% url 'expense_list' %}" class="sb-item {% if cur == 'expense_list' %}active{% endif %}">
             <i class="fas fa-receipt"></i> Giderler
         </a>
+        <a href="{% url 'profitability' %}" class="sb-item {% if cur == 'profitability' %}active{% endif %}">
+            <i class="fas fa-chart-line"></i> Karlılık
+        </a>
         {% if request.user.is_staff %}
         <hr class="sb-divider">
         <div class="sb-section">Yönetim</div>
