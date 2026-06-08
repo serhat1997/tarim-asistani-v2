@@ -7,7 +7,7 @@ from decimal import Decimal, InvalidOperation
 from datetime import date as dt_date, timedelta
 from transactions.models import Transaction
 from customers.models import Customer
-from .models import PaymentPlan, CustomerPayment
+from .models import PaymentPlan, CustomerPayment, Expense
 from .utils import fmt_tr
 
 @login_required
@@ -641,3 +641,132 @@ def recalculate_balance(request, pk):
         customer.recalculate_balance()
         messages.success(request, f"{customer.name} bakiyesi yeniden hesaplandı.")
     return redirect(f"/ekstre/?customer={pk}")
+
+
+# ─── Giderler ─────────────────────────────────────────────────────────────────
+
+@login_required
+def expense_list(request):
+    from fields.models import Field
+
+    qs = Expense.objects.filter(user=request.user) if not request.user.is_staff \
+         else Expense.objects.all()
+
+    # — Filtreler —
+    date_from  = request.GET.get('date_from', '').strip()
+    date_to    = request.GET.get('date_to', '').strip()
+    period     = request.GET.get('period', '').strip()
+    cat_filter = request.GET.get('category', '').strip()
+
+    today = dt_date.today()
+    eff_from, eff_to = date_from, date_to
+
+    if period:
+        eff_from = eff_to = ''
+        if period == 'bu_ay':
+            eff_from = today.replace(day=1).isoformat()
+            eff_to   = today.isoformat()
+        elif period == 'gecen_ay':
+            first_this = today.replace(day=1)
+            last_prev  = first_this - timedelta(days=1)
+            eff_from   = last_prev.replace(day=1).isoformat()
+            eff_to     = last_prev.isoformat()
+        elif period == 'bu_yil':
+            eff_from = today.replace(month=1, day=1).isoformat()
+            eff_to   = today.isoformat()
+        elif period == 'son_30_gun':
+            eff_from = (today - timedelta(days=30)).isoformat()
+            eff_to   = today.isoformat()
+        elif period == 'son_90_gun':
+            eff_from = (today - timedelta(days=90)).isoformat()
+            eff_to   = today.isoformat()
+
+    if eff_from:
+        qs = qs.filter(date__gte=eff_from)
+    if eff_to:
+        qs = qs.filter(date__lte=eff_to)
+    if cat_filter:
+        qs = qs.filter(category=cat_filter)
+
+    total = qs.aggregate(s=Sum('amount'))['s'] or Decimal('0')
+
+    # Kategori özeti
+    cat_summary = {}
+    for row in qs.values('category').annotate(s=Sum('amount')).order_by('-s'):
+        label = dict(Expense.CATEGORIES).get(row['category'], row['category'])
+        cat_summary[label] = row['s']
+
+    fields = Field.objects.filter(user=request.user) if not request.user.is_staff \
+             else Field.objects.all()
+
+    return render(request, 'dashboard/expenses.html', {
+        'expenses':    qs,
+        'total':       total,
+        'cat_summary': cat_summary,
+        'categories':  Expense.CATEGORIES,
+        'fields':      fields,
+        'filters': {
+            'date_from':  date_from,
+            'date_to':    date_to,
+            'period':     period,
+            'category':   cat_filter,
+            'eff_from':   eff_from,
+            'eff_to':     eff_to,
+        },
+        'fmt_total': fmt_tr(total),
+    })
+
+
+@login_required
+def expense_create(request):
+    if request.method != 'POST':
+        return redirect('expense_list')
+
+    from fields.models import Field
+
+    date_str     = request.POST.get('date', '').strip()
+    category     = request.POST.get('category', '').strip()
+    description  = request.POST.get('description', '').strip()
+    amount_text  = request.POST.get('amount', '').strip()
+    reference_no = request.POST.get('reference_no', '').strip()
+    field_id     = request.POST.get('field') or None
+
+    try:
+        exp_date = dt_date.fromisoformat(date_str) if date_str else dt_date.today()
+    except ValueError:
+        exp_date = dt_date.today()
+
+    try:
+        amount = _parse_amount(amount_text)
+        if amount <= 0:
+            messages.error(request, 'Tutar sıfırdan büyük olmalıdır.')
+            return redirect('expense_list')
+    except (InvalidOperation, ValueError):
+        messages.error(request, 'Geçerli bir tutar girin.')
+        return redirect('expense_list')
+
+    field_obj = None
+    if field_id:
+        field_obj = Field.objects.filter(pk=field_id).first()
+
+    Expense.objects.create(
+        user=request.user,
+        date=exp_date,
+        category=category,
+        description=description,
+        amount=amount,
+        reference_no=reference_no,
+        field=field_obj,
+    )
+    messages.success(request, 'Gider kaydı eklendi.')
+    return redirect('expense_list')
+
+
+@login_required
+def expense_delete(request, pk):
+    expense = get_object_or_404(Expense, pk=pk)
+    if not request.user.is_staff and expense.user != request.user:
+        raise Http404
+    if request.method == 'POST':
+        expense.delete()
+    return redirect('expense_list')

@@ -270,6 +270,9 @@
         <a href="{% url 'inventory_list' %}" class="sb-item {% if cur == 'inventory_list' or cur == 'inventory_create' or cur == 'inventory_edit' %}active{% endif %}">
             <i class="fas fa-boxes"></i> Envanterlerim
         </a>
+        <a href="{% url 'expense_list' %}" class="sb-item {% if cur == 'expense_list' %}active{% endif %}">
+            <i class="fas fa-receipt"></i> Giderler
+        </a>
         {% if request.user.is_staff %}
         <hr class="sb-divider">
         <div class="sb-section">Yönetim</div>

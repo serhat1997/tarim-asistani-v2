@@ -13,4 +13,7 @@ urlpatterns = [
     path('odemeler/taksit/<int:pk>/ode/', views.installment_pay, name='installment_pay'),
     path('odemeler/taksit/<int:pk>/geri/', views.installment_unpay, name='installment_unpay'),
     path('musteriler/<int:pk>/bakiye-hesapla/', views.recalculate_balance, name='recalculate_balance'),
+    path('giderler/', views.expense_list, name='expense_list'),
+    path('giderler/ekle/', views.expense_create, name='expense_create'),
+    path('giderler/<int:pk>/sil/', views.expense_delete, name='expense_delete'),
 ]

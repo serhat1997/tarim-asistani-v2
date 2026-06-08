@@ -91,6 +91,37 @@ class Installment(models.Model):
         return not self.is_paid and self.due_date < date.today()
 
 
+class Expense(models.Model):
+    CATEGORIES = [
+        ('yevmiye',      'Yevmiye'),
+        ('yakıt',        'Yakıt'),
+        ('kira',         'Kira'),
+        ('elektrik',     'Elektrik'),
+        ('su',           'Su'),
+        ('dogalgaz',     'Doğalgaz'),
+        ('makine_bakim', 'Makine Bakım'),
+        ('nakliye',      'Nakliye'),
+        ('vergi_harc',   'Vergi / Harç'),
+        ('ofis',         'Ofis & Kırtasiye'),
+        ('diger',        'Diğer'),
+    ]
+
+    user         = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses')
+    date         = models.DateField()
+    category     = models.CharField(max_length=20, choices=CATEGORIES)
+    description  = models.TextField(blank=True)
+    amount       = models.DecimalField(max_digits=12, decimal_places=2)
+    reference_no = models.CharField(max_length=60, blank=True)
+    field        = models.ForeignKey('fields.Field', on_delete=models.SET_NULL,
+                                     null=True, blank=True, related_name='genel_giderler')
+
+    class Meta:
+        ordering = ['-date', '-id']
+
+    def __str__(self):
+        return f"{self.get_category_display()} — ₺{self.amount} ({self.date})"
+
+
 class AuditLog(models.Model):
     ACTIONS = [('created', 'Oluşturuldu'), ('deleted', 'Silindi')]
 
@@ -123,7 +154,7 @@ def _log(action, instance, user=None):
 
 @receiver(post_save)
 def on_save(sender, instance, created, **kwargs):
-    if sender.__name__ not in ('Transaction', 'CustomerPayment', 'Installment'):
+    if sender.__name__ not in ('Transaction', 'CustomerPayment', 'Installment', 'Expense'):
         return
     if created:
         _log('created', instance)
@@ -131,6 +162,6 @@ def on_save(sender, instance, created, **kwargs):
 
 @receiver(post_delete)
 def on_delete(sender, instance, **kwargs):
-    if sender.__name__ not in ('Transaction', 'CustomerPayment', 'Installment', 'PaymentPlan'):
+    if sender.__name__ not in ('Transaction', 'CustomerPayment', 'Installment', 'PaymentPlan', 'Expense'):
         return
     _log('deleted', instance)
