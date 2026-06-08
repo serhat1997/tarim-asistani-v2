@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse
-from django.db.models import Sum
+from django.db.models import Sum, Count, Avg
 from decimal import Decimal, InvalidOperation
 from datetime import date as dt_date, timedelta
 from transactions.models import Transaction
@@ -851,6 +851,86 @@ def profitability(request):
             'pct':   float(row['total'] / total_sales * 100) if total_sales > 0 else 0,
         })
 
+    # — Cari Bazlı —
+    from customers.models import Customer
+    cust_sales_map = {
+        r['customer_id']: r
+        for r in tx_qs.filter(type='sale').values('customer_id').annotate(
+            sales=Sum('amount'), sale_count=Count('id'))
+    }
+    cust_purch_map = {
+        r['customer_id']: r
+        for r in tx_qs.filter(type='purchase').values('customer_id').annotate(
+            purch=Sum('amount'), purch_count=Count('id'))
+    }
+    all_cust_ids = set(cust_sales_map) | set(cust_purch_map)
+    customers_qs = Customer.objects.filter(pk__in=all_cust_ids).select_related()
+    cust_rows = []
+    for c in customers_qs:
+        cs = cust_sales_map.get(c.pk, {})
+        cp = cust_purch_map.get(c.pk, {})
+        sales      = cs.get('sales')   or Decimal('0')
+        purchases  = cp.get('purch')   or Decimal('0')
+        sale_cnt   = cs.get('sale_count', 0)
+        purch_cnt  = cp.get('purch_count', 0)
+        gross      = sales - purchases
+        margin     = (gross / sales * 100).quantize(Decimal('0.1')) if sales > 0 else Decimal('0')
+        cust_rows.append({
+            'customer':  c,
+            'sales':     sales,
+            'purchases': purchases,
+            'gross':     gross,
+            'margin':    margin,
+            'tx_count':  sale_cnt + purch_cnt,
+        })
+    cust_rows.sort(key=lambda r: r['gross'], reverse=True)
+
+    # — Ürün Bazlı —
+    prod_sales_map = {
+        r['product']: r
+        for r in tx_qs.filter(type='sale').values('product').annotate(
+            sales=Sum('amount'), qty=Sum('quantity'),
+            avg_price=Avg('unit_price'), count=Count('id'))
+    }
+    prod_purch_map = {
+        r['product']: r
+        for r in tx_qs.filter(type='purchase').values('product').annotate(
+            purch=Sum('amount'), qty=Sum('quantity'),
+            avg_price=Avg('unit_price'), count=Count('id'))
+    }
+    all_prod_slugs = set(prod_sales_map) | set(prod_purch_map)
+    prod_rows = []
+    for slug in all_prod_slugs:
+        ps = prod_sales_map.get(slug, {})
+        pp = prod_purch_map.get(slug, {})
+        p_sales  = ps.get('sales')     or Decimal('0')
+        p_purch  = pp.get('purch')     or Decimal('0')
+        p_qty_s  = ps.get('qty')       or Decimal('0')
+        p_qty_p  = pp.get('qty')       or Decimal('0')
+        p_avg_s  = ps.get('avg_price') or Decimal('0')
+        p_avg_p  = pp.get('avg_price') or Decimal('0')
+        p_cnt_s  = ps.get('count', 0)
+        p_cnt_p  = pp.get('count', 0)
+        p_gross  = p_sales - p_purch
+        p_margin = (p_gross / p_sales * 100).quantize(Decimal('0.1')) if p_sales > 0 else Decimal('0')
+        p_pct    = float(p_sales / total_sales * 100) if total_sales > 0 else 0
+        prod_rows.append({
+            'slug':      slug,
+            'name':      slug_to_name.get(slug, slug),
+            'sales':     p_sales,
+            'purchases': p_purch,
+            'qty_sale':  p_qty_s,
+            'qty_purch': p_qty_p,
+            'avg_sale':  p_avg_s.quantize(Decimal('0.01')) if p_avg_s else Decimal('0'),
+            'avg_purch': p_avg_p.quantize(Decimal('0.01')) if p_avg_p else Decimal('0'),
+            'cnt_sale':  p_cnt_s,
+            'cnt_purch': p_cnt_p,
+            'gross':     p_gross,
+            'margin':    p_margin,
+            'pct':       round(p_pct, 1),
+        })
+    prod_rows.sort(key=lambda r: r['sales'], reverse=True)
+
     # — Tarla Bazlı —
     fields = Field.objects.all() if user.is_staff else Field.objects.filter(user=user)
     field_rows = []
@@ -925,6 +1005,8 @@ def profitability(request):
         'gross_margin':    gross_margin,
         'net_margin':      net_margin,
         'product_rows':    product_rows,
+        'cust_rows':       cust_rows,
+        'prod_rows':       prod_rows,
         'field_rows':      field_rows,
         'ua_sales':        ua_sales,
         'ua_purch':        ua_purch,

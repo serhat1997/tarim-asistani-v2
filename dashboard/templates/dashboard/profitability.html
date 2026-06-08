@@ -47,7 +47,14 @@
     .wf-amount { width:130px;text-align:right;font-weight:700;flex-shrink:0; }
     .wf-pct    { width:50px;text-align:right;font-size:.78rem;color:var(--sub);flex-shrink:0; }
 
-    .tab-bar { display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:22px; }
+    /* ─── Cari/ürün rank bar ─── */
+    .rank-bar-wrap { flex:1; background:var(--bg); border-radius:4px; height:14px; overflow:hidden; min-width:80px; }
+    .rank-bar-sale { height:100%; background:rgba(59,130,246,.55); border-radius:4px; transition:width .5s; }
+    .rank-bar-purch{ height:100%; background:rgba(249,115,22,.55);  border-radius:4px; transition:width .5s; }
+    .rank-bar-pos  { height:100%; background:rgba(34,197,94,.65);   border-radius:4px; transition:width .5s; }
+    .rank-bar-neg  { height:100%; background:rgba(239,68,68,.65);   border-radius:4px; transition:width .5s; }
+
+    .tab-bar { display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:22px;flex-wrap:wrap; }
     .tab-btn { padding:9px 20px;font-size:.86rem;font-weight:600;border:none;background:none;
                cursor:pointer;color:var(--sub);border-bottom:2px solid transparent;
                margin-bottom:-2px;transition:color .15s,border-color .15s; }
@@ -159,6 +166,12 @@
     <button class="tab-btn active" onclick="switchTab('ozet',this)">
         <i class="fas fa-chart-pie me-1"></i> Genel Özet
     </button>
+    <button class="tab-btn" onclick="switchTab('cari',this)">
+        <i class="fas fa-users me-1"></i> Cari Bazlı
+    </button>
+    <button class="tab-btn" onclick="switchTab('urun',this)">
+        <i class="fas fa-boxes me-1"></i> Ürün Bazlı
+    </button>
     <button class="tab-btn" onclick="switchTab('tarla',this)">
         <i class="fas fa-tractor me-1"></i> Tarla Bazlı
     </button>
@@ -266,7 +279,249 @@
 
 </div>
 
-<!-- ═══════════ TAB 2 — TARLA BAZLI ══════════════════════════════════════════ -->
+<!-- ═══════════ TAB 2 — CARİ BAZLI ═══════════════════════════════════════════ -->
+<div id="tab-cari" class="tab-pane">
+    {% if cust_rows %}
+    <div class="surface" style="margin-bottom:20px;">
+        <div style="overflow-x:auto;">
+            <table class="dt">
+                <thead>
+                    <tr>
+                        <th>Cari</th>
+                        <th>Tür</th>
+                        <th style="text-align:right;">Satış</th>
+                        <th style="text-align:right;">Alış</th>
+                        <th style="text-align:right;">Brüt Kâr</th>
+                        <th style="text-align:right;">Marjin</th>
+                        <th>İşlem</th>
+                        <th>Kâr Dağılımı</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in cust_rows %}
+                    <tr>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:9px;">
+                                <div style="width:32px;height:32px;border-radius:50%;
+                                    background:linear-gradient(135deg,var(--primary),var(--primary-light));
+                                    display:flex;align-items:center;justify-content:center;
+                                    color:#fff;font-size:.8rem;font-weight:700;flex-shrink:0;">
+                                    {{ row.customer.name|first|upper }}
+                                </div>
+                                <div>
+                                    <a href="{% url 'customer_detail' row.customer.pk %}"
+                                       style="font-weight:700;font-size:.88rem;color:var(--text);text-decoration:none;">
+                                        {{ row.customer.name }}
+                                    </a>
+                                    {% if row.customer.phone %}
+                                    <div style="font-size:.73rem;color:var(--sub);">{{ row.customer.phone }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if row.customer.customer_type == 'hal' %}
+                            <span class="bp" style="background:rgba(245,158,11,.12);color:#d97706;">
+                                <i class="fas fa-store"></i> Hal
+                            </span>
+                            {% elif row.customer.customer_type == 'pazarci' %}
+                            <span class="bp" style="background:rgba(59,130,246,.1);color:#2563eb;">
+                                <i class="fas fa-shopping-basket"></i> Pazarcı
+                            </span>
+                            {% else %}
+                            <span class="bp" style="background:rgba(107,114,128,.1);color:#6b7280;">
+                                <i class="fas fa-user"></i> Diğer
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align:right;color:#2563eb;font-weight:600;white-space:nowrap;">
+                            ₺{{ row.sales|tr_num }}
+                        </td>
+                        <td style="text-align:right;color:#d97706;font-weight:600;white-space:nowrap;">
+                            {% if row.purchases > 0 %}₺{{ row.purchases|tr_num }}{% else %}<span style="color:var(--sub);">—</span>{% endif %}
+                        </td>
+                        <td style="text-align:right;white-space:nowrap;"
+                            class="{% if row.gross >= 0 %}pf-pos{% else %}pf-neg{% endif %}">
+                            {% if row.gross > 0 %}+{% endif %}₺{{ row.gross|tr_num }}
+                        </td>
+                        <td style="text-align:right;">
+                            {% if row.sales > 0 %}
+                            <span style="font-size:.82rem;font-weight:700;
+                                color:{% if row.margin >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
+                                %{{ row.margin }}
+                            </span>
+                            {% else %}<span style="color:var(--sub);">—</span>{% endif %}
+                        </td>
+                        <td style="text-align:center;">
+                            <span style="font-size:.78rem;color:var(--sub);">{{ row.tx_count }} işlem</span>
+                        </td>
+                        <td style="min-width:120px;">
+                            <div style="display:flex;flex-direction:column;gap:3px;">
+                                {% if row.sales > 0 %}
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <span style="font-size:.65rem;color:var(--sub);width:26px;">Sat</span>
+                                    <div class="rank-bar-wrap">
+                                        <div class="rank-bar-sale"
+                                             style="width:{% widthratio row.sales total_sales 100 %}%;"></div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if row.gross != 0 %}
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <span style="font-size:.65rem;color:var(--sub);width:26px;">Kâr</span>
+                                    <div class="rank-bar-wrap">
+                                        {% if row.gross > 0 %}
+                                        <div class="rank-bar-pos"
+                                             style="width:{% widthratio row.gross total_sales 100 %}%;"></div>
+                                        {% else %}
+                                        <div class="rank-bar-neg" style="width:100%;"></div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--bg);font-weight:700;font-size:.9rem;">
+                        <td colspan="2">TOPLAM ({{ cust_rows|length }} cari)</td>
+                        <td style="text-align:right;color:#2563eb;">₺{{ total_sales|tr_num }}</td>
+                        <td style="text-align:right;color:#d97706;">₺{{ total_purchases|tr_num }}</td>
+                        <td style="text-align:right;"
+                            class="{% if gross_profit >= 0 %}pf-pos{% else %}pf-neg{% endif %}">
+                            {% if gross_profit > 0 %}+{% endif %}₺{{ gross_profit|tr_num }}
+                        </td>
+                        <td style="text-align:right;color:{% if gross_margin >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
+                            %{{ gross_margin }}
+                        </td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:60px 20px;color:var(--sub);">
+        <i class="fas fa-users" style="font-size:3rem;opacity:.3;display:block;margin-bottom:14px;"></i>
+        Seçili dönemde cari işlemi bulunamadı.
+    </div>
+    {% endif %}
+</div>
+
+<!-- ═══════════ TAB 3 — ÜRÜN BAZLI ═══════════════════════════════════════════ -->
+<div id="tab-urun" class="tab-pane">
+    {% if prod_rows %}
+    <div class="surface" style="margin-bottom:20px;">
+        <div style="overflow-x:auto;">
+            <table class="dt">
+                <thead>
+                    <tr>
+                        <th>Ürün</th>
+                        <th style="text-align:right;">Satış Tutarı</th>
+                        <th style="text-align:right;">Satış Miktarı</th>
+                        <th style="text-align:right;">Ort. Satış Fiyatı</th>
+                        <th style="text-align:right;">Alış Tutarı</th>
+                        <th style="text-align:right;">Alış Miktarı</th>
+                        <th style="text-align:right;">Ort. Alış Fiyatı</th>
+                        <th style="text-align:right;">Brüt Kâr</th>
+                        <th style="text-align:right;">Marjin</th>
+                        <th>Satış Payı</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in prod_rows %}
+                    <tr>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <div style="width:30px;height:30px;border-radius:8px;
+                                    background:linear-gradient(135deg,#059669,#34d399);
+                                    display:flex;align-items:center;justify-content:center;
+                                    color:#fff;font-size:.8rem;flex-shrink:0;">
+                                    <i class="fas fa-leaf"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight:700;font-size:.88rem;">{{ row.name }}</div>
+                                    <div style="font-size:.73rem;color:var(--sub);">
+                                        {{ row.cnt_sale }} satış{% if row.cnt_purch %} · {{ row.cnt_purch }} alış{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="text-align:right;color:#2563eb;font-weight:600;white-space:nowrap;">
+                            {% if row.sales > 0 %}₺{{ row.sales|tr_num }}{% else %}<span style="color:var(--sub);">—</span>{% endif %}
+                        </td>
+                        <td style="text-align:right;color:var(--sub);font-size:.85rem;">
+                            {% if row.qty_sale > 0 %}{{ row.qty_sale|floatformat:1 }}{% else %}—{% endif %}
+                        </td>
+                        <td style="text-align:right;font-size:.85rem;">
+                            {% if row.avg_sale > 0 %}₺{{ row.avg_sale|tr_num }}{% else %}—{% endif %}
+                        </td>
+                        <td style="text-align:right;color:#d97706;font-weight:600;white-space:nowrap;">
+                            {% if row.purchases > 0 %}₺{{ row.purchases|tr_num }}{% else %}<span style="color:var(--sub);">—</span>{% endif %}
+                        </td>
+                        <td style="text-align:right;color:var(--sub);font-size:.85rem;">
+                            {% if row.qty_purch > 0 %}{{ row.qty_purch|floatformat:1 }}{% else %}—{% endif %}
+                        </td>
+                        <td style="text-align:right;font-size:.85rem;">
+                            {% if row.avg_purch > 0 %}₺{{ row.avg_purch|tr_num }}{% else %}—{% endif %}
+                        </td>
+                        <td style="text-align:right;white-space:nowrap;"
+                            class="{% if row.gross >= 0 %}pf-pos{% else %}pf-neg{% endif %}">
+                            {% if row.gross > 0 %}+{% endif %}₺{{ row.gross|tr_num }}
+                        </td>
+                        <td style="text-align:right;">
+                            {% if row.sales > 0 %}
+                            <span style="font-size:.82rem;font-weight:700;
+                                color:{% if row.margin >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
+                                %{{ row.margin }}
+                            </span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td style="min-width:100px;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <div class="rank-bar-wrap" style="height:12px;">
+                                    <div class="rank-bar-sale"
+                                         style="width:{{ row.pct }}%;opacity:.8;"></div>
+                                </div>
+                                <span style="font-size:.75rem;color:var(--sub);white-space:nowrap;min-width:32px;">
+                                    %{{ row.pct }}
+                                </span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--bg);font-weight:700;font-size:.9rem;">
+                        <td>TOPLAM ({{ prod_rows|length }} ürün)</td>
+                        <td style="text-align:right;color:#2563eb;">₺{{ total_sales|tr_num }}</td>
+                        <td colspan="2"></td>
+                        <td style="text-align:right;color:#d97706;">₺{{ total_purchases|tr_num }}</td>
+                        <td colspan="2"></td>
+                        <td style="text-align:right;"
+                            class="{% if gross_profit >= 0 %}pf-pos{% else %}pf-neg{% endif %}">
+                            {% if gross_profit > 0 %}+{% endif %}₺{{ gross_profit|tr_num }}
+                        </td>
+                        <td style="text-align:right;color:{% if gross_margin >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
+                            %{{ gross_margin }}
+                        </td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:60px 20px;color:var(--sub);">
+        <i class="fas fa-boxes" style="font-size:3rem;opacity:.3;display:block;margin-bottom:14px;"></i>
+        Seçili dönemde ürün işlemi bulunamadı.
+    </div>
+    {% endif %}
+</div>
+
+<!-- ═══════════ TAB 4 — TARLA BAZLI ══════════════════════════════════════════ -->
 <div id="tab-tarla" class="tab-pane">
     <div class="surface">
         <div style="overflow-x:auto;">
