@@ -16,5 +16,5 @@ urlpatterns = [
     path('giderler/', views.expense_list, name='expense_list'),
     path('giderler/ekle/', views.expense_create, name='expense_create'),
     path('giderler/<int:pk>/sil/', views.expense_delete, name='expense_delete'),
-    path('karlılık/', views.profitability, name='profitability'),
+    path('karlilik/', views.profitability, name='profitability'),
 ]
