@@ -39,12 +39,14 @@ def dashboard(request):
     tarla_gider     = fe_qs.aggregate(s=Sum('amount'))['s']                            or Decimal('0')
     toplam_gider    = gen_gider + tarla_gider
 
-    # Ödeme hareketi: alınan - ödenen - ödenen taksitler
-    net_odeme       = tahsilat_alindi - tahsilat_odendi - inst_odenen
+    # Açık alacak: satışlardan henüz tahsil edilmemiş tutar
+    acik_alacak     = total_sales - tahsilat_alindi
+    # Açık borç: alışlardan henüz ödenmeyen tutar
+    acik_borc       = total_purchases - tahsilat_odendi - inst_odenen
 
-    net_bakiye      = total_sales + tahsilat_alindi \
-                    - total_purchases - tahsilat_odendi - inst_odenen \
-                    - gen_gider - tarla_gider
+    # Net Bakiye = açık alacak - açık borç - giderler
+    # (satış → alacak+; tahsilat alındı → alacak−; alış → borç−; tahsilat ödendi → borç+)
+    net_bakiye      = acik_alacak - acik_borc - toplam_gider
 
     recent_transactions = transactions.order_by('-date', '-id')[:10]
 
@@ -58,7 +60,8 @@ def dashboard(request):
         'gen_gider':        gen_gider,
         'tarla_gider':      tarla_gider,
         'toplam_gider':     toplam_gider,
-        'net_odeme':        net_odeme,
+        'acik_alacak':      acik_alacak,
+        'acik_borc':        acik_borc,
         'net_bakiye':       net_bakiye,
         'greeting':         f"Merhaba {user.first_name or user.get_full_name() or user.username} 👋",
         'logged_user_name': user.username,

@@ -109,11 +109,11 @@
 <!-- ─── 4 Özet Kart ─── -->
 <div class="kpi-grid">
     <div class="kpi-card">
-        <div class="kpi-icon kpi-green" style="background:rgba(34,197,94,.1);color:#16a34a;"><i class="fas fa-arrow-up"></i></div>
+        <div class="kpi-icon" style="background:rgba(34,197,94,.1);color:#16a34a;"><i class="fas fa-arrow-up"></i></div>
         <div>
             <div class="kpi-label">Satış Hasılatı</div>
             <div class="kpi-value" style="color:#16a34a;">₺{{ total_sales|tr_num }}</div>
-            <div class="kpi-sub">Toplam satış tutarı</div>
+            <div class="kpi-sub">Tahsil edilen: ₺{{ tahsilat_alindi|tr_num }}</div>
         </div>
     </div>
     <div class="kpi-card">
@@ -121,7 +121,7 @@
         <div>
             <div class="kpi-label">Alış Maliyeti</div>
             <div class="kpi-value" style="color:#ea580c;">₺{{ total_purchases|tr_num }}</div>
-            <div class="kpi-sub">Toplam alış tutarı</div>
+            <div class="kpi-sub">Ödenen: ₺{{ tahsilat_odendi|tr_num }}</div>
         </div>
     </div>
     <div class="kpi-card">
@@ -133,13 +133,13 @@
         </div>
     </div>
     <div class="kpi-card">
-        <div class="kpi-icon" style="background:rgba(139,92,246,.1);color:#7c3aed;"><i class="fas fa-wallet"></i></div>
+        <div class="kpi-icon" style="background:rgba(59,130,246,.1);color:#2563eb;"><i class="fas fa-scale-balanced"></i></div>
         <div>
-            <div class="kpi-label">Ödeme Hareketleri</div>
-            <div class="kpi-value" style="color:{% if net_odeme >= 0 %}#7c3aed{% else %}#dc2626{% endif %};">
-                {% if net_odeme >= 0 %}+{% endif %}₺{{ net_odeme|tr_num }}
+            <div class="kpi-label">Brüt Kâr</div>
+            <div class="kpi-value" style="color:{% if profit >= 0 %}#2563eb{% else %}#dc2626{% endif %};">
+                {% if profit >= 0 %}+{% endif %}₺{{ profit|tr_num }}
             </div>
-            <div class="kpi-sub">Tahsilat − ödemeler</div>
+            <div class="kpi-sub">Satış − alış farkı</div>
         </div>
     </div>
 </div>
@@ -152,34 +152,38 @@
             {% if net_bakiye >= 0 %}+{% endif %}₺{{ net_bakiye|tr_num }}
         </div>
         <div style="font-size:.76rem;color:var(--sub);margin-top:4px;">
-            Satışlar + Tahsilat − Alışlar − Ödemeler − Giderler
+            Açık alacak (satış−tahsilat) − Açık borç (alış−ödeme) − Giderler
         </div>
     </div>
     <div class="nb-formula">
+        <!-- Satışlar -->
         <div class="nb-item">
             <span class="nb-item-lbl"><i class="fas fa-arrow-up"></i> Satışlar</span>
             <span class="nb-item-val pos">+₺{{ total_sales|tr_num }}</span>
         </div>
-        <span class="nb-sep">+</span>
+        <span class="nb-sep" style="color:#dc2626;">−</span>
+        <!-- Tahsil Edilen (alındı): alacağı kapatır -->
         <div class="nb-item">
-            <span class="nb-item-lbl"><i class="fas fa-hand-holding-dollar"></i> Tahsilat</span>
-            <span class="nb-item-val pos">+₺{{ tahsilat_alindi|tr_num }}</span>
+            <span class="nb-item-lbl"><i class="fas fa-hand-holding-dollar"></i> Tahsil Edilen</span>
+            <span class="nb-item-val neg">−₺{{ tahsilat_alindi|tr_num }}</span>
         </div>
         <span class="nb-sep" style="color:#dc2626;">−</span>
+        <!-- Alışlar -->
         <div class="nb-item">
             <span class="nb-item-lbl"><i class="fas fa-arrow-down"></i> Alışlar</span>
             <span class="nb-item-val neg">−₺{{ total_purchases|tr_num }}</span>
         </div>
-        <span class="nb-sep" style="color:#dc2626;">−</span>
+        <span class="nb-sep">+</span>
+        <!-- Ödenen (ödendi): borcumuzu kapatır -->
         <div class="nb-item">
-            <span class="nb-item-lbl"><i class="fas fa-money-bill-transfer"></i> Ödemeler</span>
-            <span class="nb-item-val neg">−₺{{ tahsilat_odendi|tr_num }}</span>
+            <span class="nb-item-lbl"><i class="fas fa-money-bill-transfer"></i> Ödenen</span>
+            <span class="nb-item-val pos">+₺{{ tahsilat_odendi|tr_num }}</span>
         </div>
         {% if inst_odenen > 0 %}
-        <span class="nb-sep" style="color:#dc2626;">−</span>
+        <span class="nb-sep">+</span>
         <div class="nb-item">
             <span class="nb-item-lbl"><i class="fas fa-calendar-check"></i> Taksitler</span>
-            <span class="nb-item-val neg">−₺{{ inst_odenen|tr_num }}</span>
+            <span class="nb-item-val pos">+₺{{ inst_odenen|tr_num }}</span>
         </div>
         {% endif %}
         <span class="nb-sep" style="color:#dc2626;">−</span>
