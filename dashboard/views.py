@@ -7,32 +7,61 @@ from decimal import Decimal, InvalidOperation
 from datetime import date as dt_date, timedelta
 from transactions.models import Transaction
 from customers.models import Customer
-from .models import PaymentPlan, CustomerPayment, Expense
+from .models import PaymentPlan, CustomerPayment, Expense, Installment
 from .utils import fmt_tr
 
 @login_required
 def dashboard(request):
-    # Admin tüm işlemleri görebilir, normal kullanıcılar sadece kendilerinkileri
-    if request.user.is_staff:
-        transactions = Transaction.objects.all()
+    from fields.models import FieldExpense
+    user = request.user
+
+    if user.is_staff:
+        transactions    = Transaction.objects.all()
+        cp_qs           = CustomerPayment.objects.all()
+        exp_qs          = Expense.objects.all()
+        fe_qs           = FieldExpense.objects.all()
+        inst_qs         = Installment.objects.filter(is_paid=True)
     else:
-        transactions = Transaction.objects.filter(user=request.user)
-    
-    total_sales = transactions.filter(type='sale').aggregate(Sum('amount'))['amount__sum'] or 0
-    total_purchases = transactions.filter(type='purchase').aggregate(Sum('amount'))['amount__sum'] or 0
-    profit = total_sales - total_purchases
+        transactions    = Transaction.objects.filter(user=user)
+        cp_qs           = CustomerPayment.objects.filter(user=user)
+        exp_qs          = Expense.objects.filter(user=user)
+        fe_qs           = FieldExpense.objects.filter(field__user=user)
+        inst_qs         = Installment.objects.filter(is_paid=True, plan__user=user)
+
+    total_sales     = transactions.filter(type='sale').aggregate(s=Sum('amount'))['s']     or Decimal('0')
+    total_purchases = transactions.filter(type='purchase').aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    profit          = total_sales - total_purchases
+
+    tahsilat_alindi = cp_qs.filter(direction='alindi').aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    tahsilat_odendi = cp_qs.filter(direction='odendi').aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    inst_odenen     = inst_qs.aggregate(s=Sum('amount'))['s']                          or Decimal('0')
+    gen_gider       = exp_qs.aggregate(s=Sum('amount'))['s']                           or Decimal('0')
+    tarla_gider     = fe_qs.aggregate(s=Sum('amount'))['s']                            or Decimal('0')
+    toplam_gider    = gen_gider + tarla_gider
+
+    # Ödeme hareketi: alınan - ödenen - ödenen taksitler
+    net_odeme       = tahsilat_alindi - tahsilat_odendi - inst_odenen
+
+    net_bakiye      = total_sales + tahsilat_alindi \
+                    - total_purchases - tahsilat_odendi - inst_odenen \
+                    - gen_gider - tarla_gider
 
     recent_transactions = transactions.order_by('-date', '-id')[:10]
 
     return render(request, 'dashboard/dashboard.html', {
-        'total_sales': total_sales,
-        'total_purchases': total_purchases,
-        'profit': profit,
-        'formatted_total_sales': fmt_tr(total_sales),
-        'formatted_total_purchases': fmt_tr(total_purchases),
-        'formatted_profit': fmt_tr(profit),
-        'greeting': f"Merhaba {request.user.first_name or request.user.get_full_name() or request.user.username} Hoş Geldin 👋",
-        'logged_user_name': request.user.username,
+        'total_sales':      total_sales,
+        'total_purchases':  total_purchases,
+        'profit':           profit,
+        'tahsilat_alindi':  tahsilat_alindi,
+        'tahsilat_odendi':  tahsilat_odendi,
+        'inst_odenen':      inst_odenen,
+        'gen_gider':        gen_gider,
+        'tarla_gider':      tarla_gider,
+        'toplam_gider':     toplam_gider,
+        'net_odeme':        net_odeme,
+        'net_bakiye':       net_bakiye,
+        'greeting':         f"Merhaba {user.first_name or user.get_full_name() or user.username} 👋",
+        'logged_user_name': user.username,
         'recent_transactions': recent_transactions,
     })
 

@@ -12,16 +12,47 @@
     .welcome h1 { font-size: 1.6rem; font-weight: 800; color: var(--text); }
     .welcome p { font-size: .88rem; color: var(--sub); margin-top: 3px; }
 
-    .kpi-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 24px; }
-    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; display: flex; align-items: center; gap: 16px; }
-    .kpi-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; flex-shrink: 0; }
-    .kpi-label { font-size: .75rem; font-weight: 600; color: var(--sub); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px; }
-    .kpi-value { font-size: 1.55rem; font-weight: 800; letter-spacing: -.5px; }
+    /* ── KPI üst satır ── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 14px; }
+    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; display: flex; align-items: center; gap: 14px; }
+    .kpi-icon { width: 44px; height: 44px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; }
+    .kpi-label { font-size: .7rem; font-weight: 700; color: var(--sub); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .4px; }
+    .kpi-value { font-size: 1.35rem; font-weight: 800; letter-spacing: -.4px; }
+    .kpi-sub   { font-size: .7rem; color: var(--sub); margin-top: 2px; }
     .kpi-green .kpi-icon { background: rgba(34,197,94,.1); color: #16a34a; }
-    .kpi-red .kpi-icon { background: rgba(239,68,68,.1); color: #dc2626; }
-    .kpi-blue .kpi-icon { background: rgba(99,102,241,.1); color: #4f46e5; }
+    .kpi-red   .kpi-icon { background: rgba(239,68,68,.1); color: #dc2626; }
+    .kpi-blue  .kpi-icon { background: rgba(59,130,246,.1); color: #2563eb; }
+    .kpi-purple.kpi-icon { background: rgba(139,92,246,.1); color: #7c3aed; }
+    .kpi-orange.kpi-icon { background: rgba(249,115,22,.1); color: #ea580c; }
     .kpi-green .kpi-value { color: #16a34a; }
-    .kpi-red .kpi-value { color: #dc2626; }
+    .kpi-red   .kpi-value { color: #dc2626; }
+    .kpi-blue  .kpi-value { color: #2563eb; }
+
+    /* ── Net Bakiye büyük kart ── */
+    .net-bakiye-card {
+        border-radius: var(--radius); padding: 22px 28px;
+        display: flex; align-items: center; justify-content: space-between;
+        flex-wrap: wrap; gap: 16px; margin-bottom: 24px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        position: relative; overflow: hidden;
+    }
+    .net-bakiye-card.positive { border-color: #22c55e; background: rgba(34,197,94,.04); }
+    .net-bakiye-card.negative { border-color: #ef4444; background: rgba(239,68,68,.04); }
+    .nb-left  { display: flex; flex-direction: column; gap: 4px; }
+    .nb-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--sub); }
+    .nb-value { font-size: 2rem; font-weight: 900; letter-spacing: -.5px; }
+    .nb-value.pos { color: #16a34a; }
+    .nb-value.neg { color: #dc2626; }
+    .nb-formula { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: .78rem; }
+    .nb-item { display: flex; flex-direction: column; align-items: center; gap: 1px;
+               padding: 6px 10px; border-radius: 8px; background: var(--bg);
+               border: 1px solid var(--border); min-width: 80px; text-align: center; }
+    .nb-item-lbl { font-size: .65rem; color: var(--sub); font-weight: 600; }
+    .nb-item-val { font-size: .84rem; font-weight: 700; }
+    .nb-item-val.pos { color: #16a34a; }
+    .nb-item-val.neg { color: #dc2626; }
+    .nb-sep { color: var(--sub); font-size: 1rem; font-weight: 700; }
 
     .action-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
     .ac {
@@ -62,11 +93,10 @@
     .ri-amount.sale { color: #16a34a; }
     .ri-amount.purchase { color: #dc2626; }
 
-    @media (max-width:900px) {
-        .kpi-grid { grid-template-columns: 1fr; }
-        .action-grid { grid-template-columns: repeat(2,1fr); }
-    }
-    @media (max-width:480px) { .action-grid { grid-template-columns: 1fr; } }
+    @media (max-width:1100px) { .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width:600px)  { .kpi-grid { grid-template-columns: 1fr 1fr; } .nb-formula { display: none; } }
+    @media (max-width:900px)  { .action-grid { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width:480px)  { .action-grid { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: 1fr; } }
 </style>
 {% endblock %}
 
@@ -76,26 +106,94 @@
     <p>İşletmenizin güncel finansal özeti aşağıda.</p>
 </div>
 
+<!-- ─── 4 Özet Kart ─── -->
 <div class="kpi-grid">
-    <div class="kpi-card kpi-green">
-        <div class="kpi-icon"><i class="fas fa-arrow-up"></i></div>
+    <div class="kpi-card">
+        <div class="kpi-icon kpi-green" style="background:rgba(34,197,94,.1);color:#16a34a;"><i class="fas fa-arrow-up"></i></div>
         <div>
-            <div class="kpi-label">Toplam Satış</div>
-            <div class="kpi-value">₺{{ formatted_total_sales }}</div>
+            <div class="kpi-label">Satış Hasılatı</div>
+            <div class="kpi-value" style="color:#16a34a;">₺{{ total_sales|tr_num }}</div>
+            <div class="kpi-sub">Toplam satış tutarı</div>
         </div>
     </div>
-    <div class="kpi-card kpi-red">
-        <div class="kpi-icon"><i class="fas fa-arrow-down"></i></div>
+    <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(249,115,22,.1);color:#ea580c;"><i class="fas fa-arrow-down"></i></div>
         <div>
-            <div class="kpi-label">Toplam Alış</div>
-            <div class="kpi-value">₺{{ formatted_total_purchases }}</div>
+            <div class="kpi-label">Alış Maliyeti</div>
+            <div class="kpi-value" style="color:#ea580c;">₺{{ total_purchases|tr_num }}</div>
+            <div class="kpi-sub">Toplam alış tutarı</div>
         </div>
     </div>
-    <div class="kpi-card kpi-blue">
-        <div class="kpi-icon"><i class="fas fa-chart-line"></i></div>
+    <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(239,68,68,.1);color:#dc2626;"><i class="fas fa-receipt"></i></div>
         <div>
-            <div class="kpi-label">Net Kâr</div>
-            <div class="kpi-value" style="color:{% if profit >= 0 %}#4f46e5{% else %}#dc2626{% endif %};">₺{{ formatted_profit }}</div>
+            <div class="kpi-label">Toplam Giderler</div>
+            <div class="kpi-value" style="color:#dc2626;">₺{{ toplam_gider|tr_num }}</div>
+            <div class="kpi-sub">Genel + tarla giderleri</div>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(139,92,246,.1);color:#7c3aed;"><i class="fas fa-wallet"></i></div>
+        <div>
+            <div class="kpi-label">Ödeme Hareketleri</div>
+            <div class="kpi-value" style="color:{% if net_odeme >= 0 %}#7c3aed{% else %}#dc2626{% endif %};">
+                {% if net_odeme >= 0 %}+{% endif %}₺{{ net_odeme|tr_num }}
+            </div>
+            <div class="kpi-sub">Tahsilat − ödemeler</div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Net Bakiye Büyük Kart ─── -->
+<div class="net-bakiye-card {% if net_bakiye >= 0 %}positive{% else %}negative{% endif %}">
+    <div class="nb-left">
+        <div class="nb-label"><i class="fas fa-scale-balanced me-1"></i>Net Bakiye (Tüm İşlemler)</div>
+        <div class="nb-value {% if net_bakiye >= 0 %}pos{% else %}neg{% endif %}">
+            {% if net_bakiye >= 0 %}+{% endif %}₺{{ net_bakiye|tr_num }}
+        </div>
+        <div style="font-size:.76rem;color:var(--sub);margin-top:4px;">
+            Satışlar + Tahsilat − Alışlar − Ödemeler − Giderler
+        </div>
+    </div>
+    <div class="nb-formula">
+        <div class="nb-item">
+            <span class="nb-item-lbl"><i class="fas fa-arrow-up"></i> Satışlar</span>
+            <span class="nb-item-val pos">+₺{{ total_sales|tr_num }}</span>
+        </div>
+        <span class="nb-sep">+</span>
+        <div class="nb-item">
+            <span class="nb-item-lbl"><i class="fas fa-hand-holding-dollar"></i> Tahsilat</span>
+            <span class="nb-item-val pos">+₺{{ tahsilat_alindi|tr_num }}</span>
+        </div>
+        <span class="nb-sep" style="color:#dc2626;">−</span>
+        <div class="nb-item">
+            <span class="nb-item-lbl"><i class="fas fa-arrow-down"></i> Alışlar</span>
+            <span class="nb-item-val neg">−₺{{ total_purchases|tr_num }}</span>
+        </div>
+        <span class="nb-sep" style="color:#dc2626;">−</span>
+        <div class="nb-item">
+            <span class="nb-item-lbl"><i class="fas fa-money-bill-transfer"></i> Ödemeler</span>
+            <span class="nb-item-val neg">−₺{{ tahsilat_odendi|tr_num }}</span>
+        </div>
+        {% if inst_odenen > 0 %}
+        <span class="nb-sep" style="color:#dc2626;">−</span>
+        <div class="nb-item">
+            <span class="nb-item-lbl"><i class="fas fa-calendar-check"></i> Taksitler</span>
+            <span class="nb-item-val neg">−₺{{ inst_odenen|tr_num }}</span>
+        </div>
+        {% endif %}
+        <span class="nb-sep" style="color:#dc2626;">−</span>
+        <div class="nb-item">
+            <span class="nb-item-lbl"><i class="fas fa-receipt"></i> Giderler</span>
+            <span class="nb-item-val neg">−₺{{ toplam_gider|tr_num }}</span>
+        </div>
+        <span class="nb-sep">=</span>
+        <div class="nb-item" style="border-color:{% if net_bakiye >= 0 %}#22c55e{% else %}#ef4444{% endif %};
+             background:{% if net_bakiye >= 0 %}rgba(34,197,94,.08){% else %}rgba(239,68,68,.08){% endif %};">
+            <span class="nb-item-lbl">Net Bakiye</span>
+            <span class="nb-item-val {% if net_bakiye >= 0 %}pos{% else %}neg{% endif %}">
+                {% if net_bakiye >= 0 %}+{% endif %}₺{{ net_bakiye|tr_num }}
+            </span>
         </div>
     </div>
 </div>
