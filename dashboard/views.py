@@ -48,7 +48,7 @@ def dashboard(request):
     # (satış → alacak+; tahsilat alındı → alacak−; alış → borç−; tahsilat ödendi → borç+)
     net_bakiye      = acik_alacak - acik_borc - toplam_gider
 
-    recent_transactions = transactions.order_by('-date', '-id')[:10]
+    recent_transactions = transactions.select_related('customer', 'field').order_by('-date', '-id')[:10]
 
     return render(request, 'dashboard/dashboard.html', {
         'total_sales':      total_sales,
@@ -126,7 +126,7 @@ def statement(request):
             else:
                 selected_customer = Customer.objects.get(id=customer_id, user=request.user)
 
-            txn_qs = Transaction.objects.filter(customer=selected_customer).order_by('date', 'id')
+            txn_qs = Transaction.objects.filter(customer=selected_customer).select_related('field').order_by('date', 'id')
             pay_qs = CustomerPayment.objects.filter(customer=selected_customer).order_by('date', 'id')
 
             # Tarih filtresi
@@ -680,6 +680,7 @@ def recalculate_balance(request, pk):
 @login_required
 def expense_list(request):
     from fields.models import Field
+    from django.core.paginator import Paginator
 
     qs = Expense.objects.filter(user=request.user) if not request.user.is_staff \
          else Expense.objects.all()
@@ -731,8 +732,12 @@ def expense_list(request):
     fields = Field.objects.filter(user=request.user) if not request.user.is_staff \
              else Field.objects.all()
 
+    paginator   = Paginator(qs.select_related('field'), 50)
+    expense_page = paginator.get_page(request.GET.get('page', 1))
+
     return render(request, 'dashboard/expenses.html', {
-        'expenses':    qs,
+        'expenses':    expense_page,
+        'page_obj':    expense_page,
         'total':       total,
         'cat_summary': cat_summary,
         'categories':  Expense.CATEGORIES,
@@ -896,7 +901,7 @@ def profitability(request):
             purch=Sum('amount'), purch_count=Count('id'))
     }
     all_cust_ids = set(cust_sales_map) | set(cust_purch_map)
-    customers_qs = Customer.objects.filter(pk__in=all_cust_ids).select_related()
+    customers_qs = Customer.objects.filter(pk__in=all_cust_ids).only('id', 'name', 'phone', 'customer_type')
     cust_rows = []
     for c in customers_qs:
         cs = cust_sales_map.get(c.pk, {})

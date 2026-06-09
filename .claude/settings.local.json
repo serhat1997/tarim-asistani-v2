@@ -42,7 +42,16 @@
       "Bash(python manage.py makemigrations customers --name \"balance_precision\")",
       "Bash(python manage.py migrate customers)",
       "Bash(python manage.py makemigrations dashboard --name \"audit_log\")",
-      "Bash(python manage.py shell -c ' *)"
+      "Bash(python manage.py shell -c ' *)",
+      "Bash(python manage.py makemigrations dashboard --name \"paymentplan_interest\")",
+      "Bash(python manage.py shell -c \"from django.template.loader import get_template; [get_template\\(t\\) for t in ['dashboard/payment_form.html','dashboard/payments.html']]; print\\('OK'\\)\")",
+      "Bash(findstr /i \"dateutil\\\\|openpyxl\\\\|gunicorn\\\\|psycopg\")",
+      "Bash(Get-Content requirements.txt)",
+      "Bash(Select-String \"dateutil|openpyxl|gunicorn|psycopg|dj-database\")",
+      "Bash(python manage.py migrate --run-syncdb)",
+      "Bash(python -c \"import dashboard.views; import inspect; src = inspect.getsource\\(dashboard.views\\); lines = src.split\\('\\\\n'\\); print\\(f'Total lines: {len\\(lines\\)}'\\); print\\('\\\\\\\\n'.join\\(lines[-20:]\\)\\)\")",
+      "Bash(xargs grep -l \"blank=True\")",
+      "Bash(python manage.py makemigrations)"
     ]
   }
 }

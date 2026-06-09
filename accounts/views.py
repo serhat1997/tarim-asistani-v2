@@ -18,6 +18,10 @@ def register_view(request):
             messages.error(request, 'Şifreler eşleşmiyor!')
             return render(request, 'accounts/register.html')
 
+        if len(password) < 8 or not any(c.isdigit() for c in password):
+            messages.error(request, 'Şifre en az 8 karakter ve 1 rakam içermelidir.')
+            return render(request, 'accounts/register.html')
+
         if User.objects.filter(username=username).exists():
             messages.error(request, 'Bu kullanıcı adı zaten kullanılıyor!')
             return render(request, 'accounts/register.html')
@@ -270,8 +274,10 @@ def settings_view(request):
             conf_pw  = request.POST.get('confirm_password', '')
             if not user.check_password(cur_pw):
                 errors['password'] = 'Mevcut şifreniz hatalı.'
-            elif len(new_pw) < 6:
-                errors['password'] = 'Yeni şifre en az 6 karakter olmalıdır.'
+            elif len(new_pw) < 8:
+                errors['password'] = 'Yeni şifre en az 8 karakter olmalıdır.'
+            elif not any(c.isdigit() for c in new_pw):
+                errors['password'] = 'Şifre en az 1 rakam içermelidir.'
             elif new_pw != conf_pw:
                 errors['password'] = 'Yeni şifreler eşleşmiyor.'
             else:

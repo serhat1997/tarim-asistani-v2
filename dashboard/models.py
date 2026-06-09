@@ -29,6 +29,12 @@ class CustomerPayment(models.Model):
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'date']),
+            models.Index(fields=['customer', 'direction']),
+        ]
+
     def __str__(self):
         return f"{self.customer.name} - {self.get_direction_display()} - {self.get_payment_type_display()} - {self.amount}"
 
@@ -117,6 +123,10 @@ class Expense(models.Model):
 
     class Meta:
         ordering = ['-date', '-id']
+        indexes = [
+            models.Index(fields=['user', 'date']),
+            models.Index(fields=['user', 'category']),
+        ]
 
     def __str__(self):
         return f"{self.get_category_display()} — ₺{self.amount} ({self.date})"

@@ -64,6 +64,14 @@ class Transaction(models.Model):
     reference_no = models.CharField(max_length=60, blank=True)
     description  = models.TextField(blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'date']),
+            models.Index(fields=['user', 'type']),
+            models.Index(fields=['customer', 'date']),
+            models.Index(fields=['customer', 'type']),
+        ]
+
     def __str__(self):
         return f"{self.customer.name} - {self.type} - {self.quantity} {self.unit} - {self.amount}"
 
@@ -96,3 +104,13 @@ class Transaction(models.Model):
                 elif self.type == 'purchase':
                     Customer.objects.filter(pk=self.customer_id).update(
                         balance=models.F('balance') - self.amount)
+
+    def delete(self, *args, **kwargs):
+        with db_transaction.atomic():
+            if self.type == 'sale':
+                Customer.objects.filter(pk=self.customer_id).update(
+                    balance=models.F('balance') - self.amount)
+            elif self.type == 'purchase':
+                Customer.objects.filter(pk=self.customer_id).update(
+                    balance=models.F('balance') + self.amount)
+            super().delete(*args, **kwargs)

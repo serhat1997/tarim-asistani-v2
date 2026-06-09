@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.http import Http404
 from django.urls import reverse
 from .models import Customer
@@ -7,10 +8,17 @@ from .models import Customer
 
 @login_required
 def customer_list(request):
+    search = request.GET.get('q', '').strip()
     if request.user.is_staff:
-        customers = Customer.objects.all().order_by('name')
+        qs = Customer.objects.all().order_by('name')
     else:
-        customers = Customer.objects.filter(user=request.user).order_by('name')
+        qs = Customer.objects.filter(user=request.user).order_by('name')
+
+    if search:
+        qs = qs.filter(name__icontains=search)
+
+    paginator = Paginator(qs, 50)
+    page_obj  = paginator.get_page(request.GET.get('page', 1))
 
     selected_customer = None
     customer_id = request.GET.get('customer')
@@ -24,7 +32,9 @@ def customer_list(request):
             pass
 
     return render(request, 'customers/customer_list.html', {
-        'customers': customers,
+        'customers':         page_obj,
+        'page_obj':          page_obj,
+        'search':            search,
         'selected_customer': selected_customer,
     })
 

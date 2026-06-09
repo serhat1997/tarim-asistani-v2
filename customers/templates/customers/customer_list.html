@@ -72,8 +72,23 @@
 
 {% block content %}
 
-<!-- Seçici -->
+<!-- Arama + Seçici -->
 <div class="cari-filter">
+    <div class="cari-filter-group">
+        <label><i class="fas fa-search me-1"></i>Cari Ara</label>
+        <form method="get" style="display:flex;gap:8px;">
+            <input type="text" name="q" value="{{ search }}" class="form-control"
+                placeholder="İsimle ara…" style="font-size:.86rem;">
+            <button type="submit" class="btn-g" style="padding:8px 14px;white-space:nowrap;">
+                <i class="fas fa-search"></i>
+            </button>
+            {% if search %}
+            <a href="{% url 'customer_list' %}" class="btn-o" style="padding:8px 14px;white-space:nowrap;">
+                <i class="fas fa-times"></i>
+            </a>
+            {% endif %}
+        </form>
+    </div>
     <div class="cari-filter-group">
         <label><i class="fas fa-address-book me-1"></i>Cari Seç</label>
         <select class="form-select" id="customerSelect" onchange="applyFilter()">
@@ -226,6 +241,28 @@
         </table>
     </div>
 </div>
+
+<!-- Sayfalandırma -->
+{% if page_obj.has_other_pages %}
+<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;flex-wrap:wrap;">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&q={{ search }}{% endif %}"
+       class="btn-o" style="padding:7px 14px;font-size:.84rem;">
+        <i class="fas fa-chevron-left"></i> Önceki
+    </a>
+    {% endif %}
+    <span style="font-size:.84rem;color:var(--sub);padding:0 8px;">
+        Sayfa {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+        <span style="color:var(--sub);font-size:.78rem;">({{ page_obj.paginator.count }} kayıt)</span>
+    </span>
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% if search %}&q={{ search }}{% endif %}"
+       class="btn-o" style="padding:7px 14px;font-size:.84rem;">
+        Sonraki <i class="fas fa-chevron-right"></i>
+    </a>
+    {% endif %}
+</div>
+{% endif %}
 
 {% endif %}
 {% endblock %}

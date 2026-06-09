@@ -21,6 +21,12 @@ class Customer(models.Model):
 
     HAL_COMMISSION = Decimal('0.02')
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'name']),
+            models.Index(fields=['user', 'customer_type']),
+        ]
+
     def __str__(self):
         return self.name
 

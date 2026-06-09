@@ -82,6 +82,9 @@ class FieldExpense(models.Model):
 
     class Meta:
         ordering = ['-date']
+        indexes = [
+            models.Index(fields=['field', 'date']),
+        ]
 
 
 class LandTransaction(models.Model):
