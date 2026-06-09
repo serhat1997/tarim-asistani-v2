@@ -21,6 +21,7 @@ class Product(models.Model):
 
     slug = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=100)
+    icon = models.CharField(max_length=10, default='📦', blank=True)
     product_type = models.CharField(max_length=10, choices=PRODUCT_TYPES)
     default_unit = models.CharField(max_length=10, choices=UNIT_CHOICES, default='kg')
     active = models.BooleanField(default=True)

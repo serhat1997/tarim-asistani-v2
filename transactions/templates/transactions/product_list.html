@@ -4,20 +4,84 @@
 
 {% block extra_css %}
 <style>
-    .prod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 28px; }
-    .prod-card {
-        background: var(--surface); border: 1px solid var(--border);
-        border-radius: var(--radius); padding: 14px 16px;
-        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    /* ─── Grid ─── */
+    .prod-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 14px;
+        padding: 18px;
     }
+
+    /* ─── Kart ─── */
+    .prod-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px 16px 14px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        position: relative;
+        transition: transform .15s, box-shadow .15s;
+    }
+    .prod-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.07); }
     .prod-card.inactive { opacity: .45; }
+
+    .prod-icon-circle {
+        width: 60px; height: 60px;
+        border-radius: 50%;
+        background: var(--bg);
+        border: 2px solid var(--border);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.7rem;
+        line-height: 1;
+        flex-shrink: 0;
+    }
+    .prod-card:hover .prod-icon-circle {
+        border-color: var(--primary-light);
+        background: rgba(64,145,108,.06);
+    }
+
+    .prod-name  { font-weight: 700; font-size: .93rem; text-align: center; }
+    .prod-meta  { font-size: .72rem; color: var(--sub); text-align: center; }
+    .prod-badge-row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+
+    .prod-actions {
+        display: flex; gap: 6px; margin-top: 4px;
+    }
+
+    /* ─── Ekle Formu ─── */
     .add-form {
-        background: var(--surface); border: 1px solid var(--border);
-        border-radius: var(--radius); padding: 20px 22px; margin-bottom: 24px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px 22px;
+        margin-bottom: 22px;
     }
     .add-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
-    .add-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 150px; }
+    .add-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 140px; }
     .add-group label { font-size: .72rem; font-weight: 700; color: var(--sub); }
+
+    /* ─── Emoji Seçici ─── */
+    .emoji-grid {
+        display: flex; flex-wrap: wrap; gap: 6px;
+        padding: 10px; max-width: 280px;
+    }
+    .emoji-btn {
+        width: 34px; height: 34px;
+        border: 1.5px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        cursor: pointer; font-size: 1.1rem;
+        display: flex; align-items: center; justify-content: center;
+        transition: border-color .12s, background .12s;
+    }
+    .emoji-btn:hover, .emoji-btn.selected {
+        border-color: var(--primary-light);
+        background: rgba(64,145,108,.08);
+    }
+
     @media(max-width:600px) { .add-group { min-width: 100%; } }
 </style>
 {% endblock %}
@@ -26,16 +90,42 @@
 
 <!-- Yeni Ürün Ekle -->
 <div class="add-form">
-    <div style="font-size:.9rem;font-weight:700;margin-bottom:14px;">
+    <div style="font-size:.9rem;font-weight:700;margin-bottom:16px;">
         <i class="fas fa-plus-circle me-2" style="color:var(--primary-light);"></i>Yeni Ürün Ekle
     </div>
-    <form method="post" action="{% url 'product_create' %}">
+    <form method="post" action="{% url 'product_create' %}" id="addForm">
         {% csrf_token %}
+        <input type="hidden" name="icon" id="iconInput" value="📦">
         <div class="add-row">
+            <!-- Simge seçici -->
+            <div class="add-group" style="min-width:200px;flex:0;">
+                <label>Simge</label>
+                <div style="position:relative;">
+                    <button type="button" id="emojiToggle"
+                        style="width:44px;height:42px;font-size:1.4rem;border:1.5px solid var(--border);
+                               border-radius:10px;background:var(--surface);cursor:pointer;
+                               display:flex;align-items:center;justify-content:center;transition:border-color .15s;"
+                        onclick="togglePicker()">📦</button>
+                    <div id="emojiPicker"
+                        style="display:none;position:absolute;top:48px;left:0;z-index:200;
+                               background:var(--surface);border:1px solid var(--border);
+                               border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.12);">
+                        <div class="emoji-grid">
+                            {% for e in "🍎🍊🍋🍇🍓🍑🍒🌽🥕🥔🧅🧄🫐🍅🥒🥬🫑🌿🌱🌾🌻🌳🍃🪴💐🍏🍐🥭🥝🫒🌰🫘🥦🍆🌶️💧🪣🔧⚙️📦🌾🌱🪴🧪🫙🍯🥛🥚🐄🐓🐑🐐🌊🌤️" %}
+                            <button type="button" class="emoji-btn" onclick="selectEmoji('{{ e }}')">{{ e }}</button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ürün adı -->
             <div class="add-group" style="flex:2;">
                 <label>Ürün Adı</label>
-                <input type="text" name="name" class="form-control" placeholder="ör. Armut, Sulama Borusu…" required>
+                <input type="text" name="name" class="form-control" placeholder="ör. Armut, Kiraz, Gübre…" required>
             </div>
+
+            <!-- Tür -->
             <div class="add-group">
                 <label>Tür</label>
                 <select name="product_type" class="form-select">
@@ -44,6 +134,8 @@
                     <option value="both">Her İkisi</option>
                 </select>
             </div>
+
+            <!-- Birim -->
             <div class="add-group">
                 <label>Varsayılan Birim</label>
                 <select name="default_unit" class="form-select">
@@ -54,8 +146,9 @@
                     <option value="paket">Paket</option>
                 </select>
             </div>
+
             <div style="flex:0;display:flex;align-items:flex-end;">
-                <button type="submit" class="btn-g" style="white-space:nowrap;padding:9px 16px;">
+                <button type="submit" class="btn-g" style="white-space:nowrap;padding:9px 18px;">
                     <i class="fas fa-plus"></i> Ekle
                 </button>
             </div>
@@ -69,46 +162,80 @@
         <div class="ch-title"><i class="fas fa-boxes me-2" style="color:var(--primary-light);"></i>Kayıtlı Ürünler</div>
         <div style="font-size:.77rem;color:var(--sub);">{{ products|length }} ürün</div>
     </div>
-    <div class="prod-grid" style="padding:16px;">
+
+    <div class="prod-grid">
         {% for p in products %}
         <div class="prod-card {% if not p.active %}inactive{% endif %}">
-            <div style="display:flex;align-items:center;gap:10px;">
+            <!-- Simge -->
+            <div class="prod-icon-circle">{{ p.icon|default:"📦" }}</div>
+
+            <!-- İsim + meta -->
+            <div class="prod-name">{{ p.name }}</div>
+            <div class="prod-meta">Birim: {{ p.get_default_unit_display }}{% if not p.active %} · <span style="color:#dc2626;">Pasif</span>{% endif %}</div>
+
+            <!-- Tür rozeti -->
+            <div class="prod-badge-row">
                 {% if p.product_type == 'sale' %}
-                    <span class="bp" style="background:rgba(59,130,246,.1);color:#2563eb;font-size:.73rem;"><i class="fas fa-arrow-up"></i> Satış</span>
+                    <span class="bp bp-sale"><i class="fas fa-arrow-up"></i> Satış</span>
                 {% elif p.product_type == 'purchase' %}
-                    <span class="bp" style="background:rgba(245,158,11,.1);color:#d97706;font-size:.73rem;"><i class="fas fa-arrow-down"></i> Alış</span>
+                    <span class="bp bp-purchase"><i class="fas fa-arrow-down"></i> Alış</span>
                 {% else %}
-                    <span class="bp" style="background:rgba(99,102,241,.1);color:#4f46e5;font-size:.73rem;"><i class="fas fa-arrows-alt-v"></i> Her İkisi</span>
+                    <span class="bp" style="background:rgba(99,102,241,.1);color:#4f46e5;">
+                        <i class="fas fa-arrows-alt-v"></i> Her İkisi
+                    </span>
                 {% endif %}
-                <div>
-                    <div style="font-weight:700;font-size:.88rem;">{{ p.name }}</div>
-                    <div style="font-size:.72rem;color:var(--sub);">
-                        Birim: {{ p.get_default_unit_display }}
-                        {% if not p.active %}<span style="color:#dc2626;"> · Pasif</span>{% endif %}
-                    </div>
-                </div>
             </div>
-            <div style="display:flex;gap:6px;flex-shrink:0;">
+
+            <!-- Butonlar -->
+            <div class="prod-actions">
                 <form method="post" action="{% url 'product_toggle' p.pk %}" style="display:inline;">
                     {% csrf_token %}
-                    <button type="submit" class="btn-o" style="padding:5px 10px;font-size:.75rem;"
+                    <button type="submit" class="btn-o" style="padding:5px 11px;font-size:.76rem;"
                         title="{% if p.active %}Pasif yap{% else %}Aktif yap{% endif %}">
                         <i class="fas fa-{% if p.active %}eye-slash{% else %}eye{% endif %}"></i>
+                        {% if p.active %}Pasif{% else %}Aktif{% endif %}
                     </button>
                 </form>
-                <button class="btn-danger-soft" style="padding:5px 10px;font-size:.75rem;"
+                <button class="btn-danger-soft" style="padding:5px 11px;font-size:.76rem;"
                     onclick="confirmDelete('{% url 'product_delete' p.pk %}', '{{ p.name }} ürünü silinecek.')">
                     <i class="fas fa-trash-alt"></i>
                 </button>
             </div>
         </div>
         {% empty %}
-        <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--sub);">
-            <i class="fas fa-box-open" style="font-size:2rem;opacity:.3;display:block;margin-bottom:10px;"></i>
+        <div style="grid-column:1/-1;text-align:center;padding:50px;color:var(--sub);">
+            <div style="font-size:3rem;margin-bottom:12px;opacity:.25;">📦</div>
             Henüz ürün eklenmemiş.
+            <div style="margin-top:10px;font-size:.83rem;">Yukarıdaki formu kullanarak ilk ürününüzü ekleyin.</div>
         </div>
         {% endfor %}
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePicker() {
+    const p = document.getElementById('emojiPicker');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+function selectEmoji(e) {
+    document.getElementById('iconInput').value = e;
+    document.getElementById('emojiToggle').textContent = e;
+    document.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+    event.currentTarget.classList.add('selected');
+    document.getElementById('emojiPicker').style.display = 'none';
+}
+
+// Dışarı tıklanınca kapat
+document.addEventListener('click', function(e) {
+    const picker = document.getElementById('emojiPicker');
+    const toggle = document.getElementById('emojiToggle');
+    if (picker && !picker.contains(e.target) && e.target !== toggle) {
+        picker.style.display = 'none';
+    }
+});
+</script>
 {% endblock %}

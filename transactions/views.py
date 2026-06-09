@@ -153,18 +153,18 @@ def product_create(request):
         name         = request.POST.get('name', '').strip()
         product_type = request.POST.get('product_type', 'sale')
         default_unit = request.POST.get('default_unit', 'kg')
+        icon         = request.POST.get('icon', '📦').strip() or '📦'
         if name:
             import re
             slug = re.sub(r'[^a-z0-9_]', '', name.lower()
                           .replace('ç', 'c').replace('ğ', 'g').replace('ı', 'i')
                           .replace('ö', 'o').replace('ş', 's').replace('ü', 'u'))
             slug = slug[:50] or f"urun_{Product.objects.count() + 1}"
-            # Slug çakışması
             base, i = slug, 1
             while Product.objects.filter(slug=slug).exists():
                 slug = f"{base}_{i}"; i += 1
             Product.objects.create(
-                slug=slug, name=name, product_type=product_type,
+                slug=slug, name=name, icon=icon, product_type=product_type,
                 default_unit=default_unit, active=True,
                 order=Product.objects.filter(product_type__in=[product_type, 'both']).count() + 1,
             )
