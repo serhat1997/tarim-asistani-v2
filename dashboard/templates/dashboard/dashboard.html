@@ -13,11 +13,12 @@
     .welcome p { font-size: .88rem; color: var(--sub); margin-top: 3px; }
 
     /* ── KPI üst satır ── */
-    .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 14px; }
-    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; display: flex; align-items: center; gap: 14px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 14px; margin-bottom: 14px; }
+    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 16px; display: flex; align-items: center; gap: 12px; transition: transform .18s, box-shadow .18s; }
+    .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
     .kpi-icon { width: 44px; height: 44px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; }
     .kpi-label { font-size: .7rem; font-weight: 700; color: var(--sub); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .4px; }
-    .kpi-value { font-size: 1.35rem; font-weight: 800; letter-spacing: -.4px; }
+    .kpi-value { font-size: 1.22rem; font-weight: 800; letter-spacing: -.4px; }
     .kpi-sub   { font-size: .7rem; color: var(--sub); margin-top: 2px; }
     .kpi-green .kpi-icon { background: rgba(34,197,94,.1); color: #16a34a; }
     .kpi-red   .kpi-icon { background: rgba(239,68,68,.1); color: #dc2626; }
@@ -93,7 +94,11 @@
     .ri-amount.sale { color: #16a34a; }
     .ri-amount.purchase { color: #dc2626; }
 
-    @media (max-width:1100px) { .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+    /* ── Alt ızgara: grafik + son işlemler ── */
+    .bottom-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-top: 24px; align-items: start; }
+    .chart-body { padding: 18px 20px; height: 320px; }
+
+    @media (max-width:1100px) { .kpi-grid { grid-template-columns: repeat(2,1fr); } .bottom-grid { grid-template-columns: 1fr; } }
     @media (max-width:600px)  { .kpi-grid { grid-template-columns: 1fr 1fr; } .nb-formula { display: none; } }
     @media (max-width:900px)  { .action-grid { grid-template-columns: repeat(2,1fr); } }
     @media (max-width:480px)  { .action-grid { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: 1fr; } }
@@ -140,6 +145,16 @@
                 {% if profit >= 0 %}+{% endif %}₺{{ profit|tr_num }}
             </div>
             <div class="kpi-sub">Satış − alış farkı</div>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(139,92,246,.1);color:#7c3aed;"><i class="fas fa-sack-dollar"></i></div>
+        <div>
+            <div class="kpi-label">Net Kâr</div>
+            <div class="kpi-value" style="color:{% if net_profit >= 0 %}#7c3aed{% else %}#dc2626{% endif %};">
+                {% if net_profit >= 0 %}+{% endif %}₺{{ net_profit|tr_num }}
+            </div>
+            <div class="kpi-sub">Brüt kâr − giderler</div>
         </div>
     </div>
 </div>
@@ -228,8 +243,60 @@
     </a>
 </div>
 
+<div class="bottom-grid">
+
+<div style="display:flex;flex-direction:column;gap:16px;min-width:0;">
+
+<!-- Aylık Finansal Görünüm -->
+<div class="surface">
+    <div class="card-header-bar">
+        <div>
+            <div class="ch-title"><i class="fas fa-chart-column me-2" style="color:var(--primary-light);"></i>Aylık Finansal Görünüm</div>
+            <div style="font-size:.77rem;color:var(--sub);margin-top:2px;">Son 6 ay · satış, alış + gider ve net</div>
+        </div>
+        <a href="{% url 'profitability' %}" class="btn-o" style="padding:7px 14px;font-size:.82rem;">
+            Karlılık <i class="fas fa-arrow-right ms-1"></i>
+        </a>
+    </div>
+    <div class="chart-body">
+        {% if has_chart_data %}
+        <canvas id="dashChart"></canvas>
+        {% else %}
+        <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--sub);font-size:.87rem;">
+            <i class="fas fa-chart-column" style="font-size:2rem;opacity:.3;margin-bottom:10px;"></i>
+            Grafik için henüz yeterli veri yok.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Aylık Satış Miktarı (kg) -->
+<div class="surface">
+    <div class="card-header-bar">
+        <div>
+            <div class="ch-title"><i class="fas fa-weight-hanging me-2" style="color:var(--primary-light);"></i>Aylık Satış Miktarı</div>
+            <div style="font-size:.77rem;color:var(--sub);margin-top:2px;">Son 6 ay · kg birimli satışların toplamı</div>
+        </div>
+        <a href="{% url 'sales_quantity' %}" class="btn-o" style="padding:7px 14px;font-size:.82rem;">
+            Detay <i class="fas fa-arrow-right ms-1"></i>
+        </a>
+    </div>
+    <div class="chart-body" style="height:240px;">
+        {% if has_kg_data %}
+        <canvas id="kgChart"></canvas>
+        {% else %}
+        <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--sub);font-size:.87rem;">
+            <i class="fas fa-weight-hanging" style="font-size:2rem;opacity:.3;margin-bottom:10px;"></i>
+            Kg birimli satış kaydı bulunmuyor.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+</div>
+
 <!-- Son İşlemler -->
-<div class="surface" style="margin-top:24px;">
+<div class="surface">
     <div class="card-header-bar">
         <div>
             <div class="ch-title"><i class="fas fa-history me-2" style="color:var(--primary-light);"></i>Son İşlemler</div>
@@ -261,4 +328,101 @@
         {% endfor %}
     </ul>
 </div>
+
+</div><!-- /bottom-grid -->
+{% endblock %}
+
+{% block extra_js %}
+{% if has_chart_data or has_kg_data %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    const raw = {{ dashboard_chart|safe }};
+    const isDark    = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)';
+    const textColor = isDark ? '#8b949e' : '#6b7280';
+
+    const kgCanvas = document.getElementById('kgChart');
+    if (kgCanvas) {
+        new Chart(kgCanvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: raw.labels,
+                datasets: [
+                    { label: 'Satış Miktarı (kg)', data: raw.kg,
+                      backgroundColor: 'rgba(45,106,79,.7)',
+                      hoverBackgroundColor: 'rgba(45,106,79,.9)',
+                      borderRadius: 5, maxBarThickness: 56 },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => '  ' + ctx.parsed.y.toLocaleString('tr-TR', { maximumFractionDigits: 2 }) + ' kg'
+                        }
+                    },
+                },
+                scales: {
+                    x: { ticks: { color: textColor, font: { size: 11 } }, grid: { color: gridColor } },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: textColor, font: { size: 11 },
+                            callback: v => v.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' kg' },
+                        grid: { color: gridColor },
+                    },
+                },
+            },
+        });
+    }
+
+    const finCanvas = document.getElementById('dashChart');
+    if (!finCanvas) return;
+    new Chart(finCanvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: raw.labels,
+            datasets: [
+                { label: 'Satış', data: raw.sales,
+                  backgroundColor: 'rgba(64,145,108,.75)', borderRadius: 5, order: 2 },
+                { label: 'Alış + Gider', data: raw.expenses.map((e, i) => e + raw.purchases[i]),
+                  backgroundColor: 'rgba(239,68,68,.5)', borderRadius: 5, order: 3 },
+                { label: 'Net', data: raw.net, type: 'line',
+                  borderColor: '#2563eb', backgroundColor: 'rgba(59,130,246,.1)',
+                  borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#2563eb',
+                  fill: false, tension: 0.3, order: 1 },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { color: textColor, font: { family: 'Poppins', size: 11 }, boxWidth: 14 } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const v = ctx.parsed.y;
+                            const f = Math.abs(v).toLocaleString('tr-TR', { minimumFractionDigits: 2 });
+                            return `  ${ctx.dataset.label}: ${v < 0 ? '-' : ''}₺${f}`;
+                        }
+                    }
+                },
+            },
+            scales: {
+                x: { ticks: { color: textColor, font: { size: 11 } }, grid: { color: gridColor } },
+                y: {
+                    ticks: { color: textColor, font: { size: 11 },
+                        callback: v => '₺' + Math.abs(v).toLocaleString('tr-TR', { maximumFractionDigits: 0 }) },
+                    grid: { color: gridColor },
+                },
+            },
+        },
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

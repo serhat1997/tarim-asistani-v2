@@ -17,4 +17,5 @@ urlpatterns = [
     path('giderler/ekle/', views.expense_create, name='expense_create'),
     path('giderler/<int:pk>/sil/', views.expense_delete, name='expense_delete'),
     path('karlilik/', views.profitability, name='profitability'),
+    path('satis-miktari/', views.sales_quantity, name='sales_quantity'),
 ]

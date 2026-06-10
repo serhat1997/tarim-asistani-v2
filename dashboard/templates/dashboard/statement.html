@@ -134,7 +134,7 @@
     <div class="stmt-filter-row">
         <div class="stmt-filter-group wide">
             <label><i class="fas fa-address-book me-1"></i>Cari Seç</label>
-            <select class="form-select" id="customerSelect" onchange="applyFilter()">
+            <select class="form-select" id="customerSelect" data-searchable onchange="applyFilter()">
                 <option value="">— Cari seçin —</option>
                 {% for c in customers %}
                 <option value="{{ c.id }}" {% if selected_customer and selected_customer.id == c.id %}selected{% endif %}>
@@ -176,7 +176,7 @@
 
         <div class="stmt-filter-group" style="min-width:140px;">
             <label><i class="fas fa-box me-1"></i>Ürün</label>
-            <select class="form-select" id="productSelect">
+            <select class="form-select" id="productSelect" data-searchable>
                 <option value="">— Tümü —</option>
                 {% for val, lbl in all_products %}
                 <option value="{{ val }}" {% if filter_product == val %}selected{% endif %}>{{ lbl }}</option>

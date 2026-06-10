@@ -39,6 +39,9 @@ def dashboard(request):
     tarla_gider     = fe_qs.aggregate(s=Sum('amount'))['s']                            or Decimal('0')
     toplam_gider    = gen_gider + tarla_gider
 
+    # Net kâr = satış − alış − giderler (brüt kârdan giderler düşülür)
+    net_profit      = profit - toplam_gider
+
     # Açık alacak: satışlardan henüz tahsil edilmemiş tutar
     acik_alacak     = total_sales - tahsilat_alindi
     # Açık borç: alışlardan henüz ödenmeyen tutar
@@ -50,10 +53,61 @@ def dashboard(request):
 
     recent_transactions = transactions.select_related('customer', 'field').order_by('-date', '-id')[:10]
 
+    # — Son 6 ayın aylık trendi (grafik) —
+    from django.db.models.functions import TruncMonth
+    import json
+
+    MONTHS_TR = {1: 'Oca', 2: 'Şub', 3: 'Mar', 4: 'Nis', 5: 'May', 6: 'Haz',
+                 7: 'Tem', 8: 'Ağu', 9: 'Eyl', 10: 'Eki', 11: 'Kas', 12: 'Ara'}
+
+    today = dt_date.today()
+    month_start = today.replace(day=1)
+    months = [month_start]
+    for _ in range(5):
+        months.insert(0, (months[0] - timedelta(days=1)).replace(day=1))
+    chart_from = months[0]
+
+    def _monthly_sums(qs):
+        rows = qs.filter(date__gte=chart_from).annotate(m=TruncMonth('date')) \
+                 .values('m').annotate(v=Sum('amount'))
+        return {r['m'].strftime('%Y-%m'): r['v'] or Decimal('0') for r in rows if r['m']}
+
+    m_sales = _monthly_sums(transactions.filter(type='sale'))
+    m_purch = _monthly_sums(transactions.filter(type='purchase'))
+    m_gexp  = _monthly_sums(exp_qs)
+    m_fexp  = _monthly_sums(fe_qs)
+
+    # Aylık satış miktarı (sadece kg birimli satışlar)
+    kg_rows = transactions.filter(type='sale', unit='kg', date__gte=chart_from) \
+                          .annotate(m=TruncMonth('date')).values('m').annotate(v=Sum('quantity'))
+    m_kg = {r['m'].strftime('%Y-%m'): r['v'] or Decimal('0') for r in kg_rows if r['m']}
+
+    chart_labels, chart_sales, chart_purch, chart_exp, chart_net, chart_kg = [], [], [], [], [], []
+    for m in months:
+        k = m.strftime('%Y-%m')
+        s  = m_sales.get(k, Decimal('0'))
+        p  = m_purch.get(k, Decimal('0'))
+        ex = m_gexp.get(k, Decimal('0')) + m_fexp.get(k, Decimal('0'))
+        chart_labels.append(f"{MONTHS_TR[m.month]} {m.year}")
+        chart_sales.append(float(s))
+        chart_purch.append(float(p))
+        chart_exp.append(float(ex))
+        chart_net.append(float(s - p - ex))
+        chart_kg.append(float(m_kg.get(k, Decimal('0'))))
+
+    has_chart_data = any(chart_sales) or any(chart_purch) or any(chart_exp)
+    has_kg_data    = any(chart_kg)
+    dashboard_chart = json.dumps({
+        'labels': chart_labels, 'sales': chart_sales,
+        'purchases': chart_purch, 'expenses': chart_exp, 'net': chart_net,
+        'kg': chart_kg,
+    })
+
     return render(request, 'dashboard/dashboard.html', {
         'total_sales':      total_sales,
         'total_purchases':  total_purchases,
         'profit':           profit,
+        'net_profit':       net_profit,
         'tahsilat_alindi':  tahsilat_alindi,
         'tahsilat_odendi':  tahsilat_odendi,
         'inst_odenen':      inst_odenen,
@@ -66,6 +120,9 @@ def dashboard(request):
         'greeting':         f"Merhaba {user.first_name or user.get_full_name() or user.username} 👋",
         'logged_user_name': user.username,
         'recent_transactions': recent_transactions,
+        'dashboard_chart':  dashboard_chart,
+        'has_chart_data':   has_chart_data,
+        'has_kg_data':      has_kg_data,
     })
 
 @login_required
@@ -807,6 +864,76 @@ def expense_delete(request, pk):
     if request.method == 'POST':
         expense.delete()
     return redirect('expense_list')
+
+
+# ─── Satış Miktarı Detayı ─────────────────────────────────────────────────────
+
+@login_required
+def sales_quantity(request):
+    """Kg birimli satışların detay sayfası: toplam miktar, aylık grafik, cari kırılımı."""
+    from django.db.models import Max
+    from django.db.models.functions import TruncMonth
+    import json
+
+    user  = request.user
+    tx_qs = Transaction.objects.all() if user.is_staff else Transaction.objects.filter(user=user)
+    kg_qs = tx_qs.filter(type='sale', unit='kg')
+
+    def fmt_kg(value):
+        s = fmt_tr(value)
+        return s[:-3] if s.endswith(',00') else s
+
+    today        = dt_date.today()
+    total_kg     = kg_qs.aggregate(s=Sum('quantity'))['s'] or Decimal('0')
+    total_amount = kg_qs.aggregate(s=Sum('amount'))['s']   or Decimal('0')
+    tx_count     = kg_qs.count()
+    year_kg      = kg_qs.filter(date__gte=today.replace(month=1, day=1)) \
+                        .aggregate(s=Sum('quantity'))['s'] or Decimal('0')
+    month_kg     = kg_qs.filter(date__gte=today.replace(day=1)) \
+                        .aggregate(s=Sum('quantity'))['s'] or Decimal('0')
+
+    # — Tüm zamanların aylık satış miktarı —
+    MONTHS_TR = {1: 'Oca', 2: 'Şub', 3: 'Mar', 4: 'Nis', 5: 'May', 6: 'Haz',
+                 7: 'Tem', 8: 'Ağu', 9: 'Eyl', 10: 'Eki', 11: 'Kas', 12: 'Ara'}
+    chart_labels, chart_kg = [], []
+    monthly_rows = kg_qs.annotate(m=TruncMonth('date')).values('m') \
+                        .annotate(kg=Sum('quantity')).order_by('m')
+    for r in monthly_rows:
+        if not r['m']:
+            continue
+        chart_labels.append(f"{MONTHS_TR[r['m'].month]} {r['m'].year}")
+        chart_kg.append(float(r['kg'] or 0))
+
+    # — Cari bazında kırılım —
+    cust_rows = []
+    rows = kg_qs.values('customer_id', 'customer__name') \
+                .annotate(kg=Sum('quantity'), tutar=Sum('amount'),
+                          cnt=Count('id'), last=Max('date')) \
+                .order_by('-kg')
+    for r in rows:
+        kg    = r['kg']    or Decimal('0')
+        tutar = r['tutar'] or Decimal('0')
+        cust_rows.append({
+            'customer_id': r['customer_id'],
+            'name':        r['customer__name'],
+            'kg':          fmt_kg(kg),
+            'pct':         float(kg / total_kg * 100) if total_kg > 0 else 0,
+            'cnt':         r['cnt'],
+            'tutar':       fmt_tr(tutar),
+            'avg_price':   fmt_tr(tutar / kg) if kg > 0 else '—',
+            'last':        r['last'],
+        })
+
+    return render(request, 'dashboard/sales_quantity.html', {
+        'total_kg':     fmt_kg(total_kg),
+        'year_kg':      fmt_kg(year_kg),
+        'month_kg':     fmt_kg(month_kg),
+        'total_amount': fmt_tr(total_amount),
+        'tx_count':     tx_count,
+        'cust_rows':    cust_rows,
+        'chart_json':   json.dumps({'labels': chart_labels, 'kg': chart_kg}),
+        'has_data':     tx_count > 0,
+    })
 
 
 # ─── Karlılık Tablosu ─────────────────────────────────────────────────────────

@@ -59,7 +59,7 @@
             <div class="field-row mb-3">
                 <div>
                     <label class="form-label">Cari</label>
-                    <select name="customer" class="form-select" required>
+                    <select name="customer" class="form-select" data-searchable required>
                         <option value="">— Cari seçin —</option>
                         {% for c in customers %}
                         <option value="{{ c.id }}" {% if form_data.customer|default:'' == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>

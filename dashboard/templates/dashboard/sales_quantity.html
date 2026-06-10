@@ -1,0 +1,213 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Satış Miktarı{% endblock %}
+{% block page_title %}Satış Miktarı Detayı{% endblock %}
+
+{% block topbar_right %}
+<a href="{% url 'dashboard' %}" class="btn-o" style="padding:8px 14px;font-size:.84rem;">
+    <i class="fas fa-arrow-left"></i> Ana Sayfa
+</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .qty-kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 18px; }
+    .qty-kpi {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 18px 20px;
+        display: flex; align-items: center; gap: 14px;
+        transition: transform .18s, box-shadow .18s;
+    }
+    .qty-kpi:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .qty-icon {
+        width: 44px; height: 44px; border-radius: 11px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center; font-size: 1.05rem;
+    }
+    .qty-label { font-size: .7rem; font-weight: 700; color: var(--sub); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .4px; }
+    .qty-value { font-size: 1.3rem; font-weight: 800; letter-spacing: -.4px; color: var(--text); }
+    .qty-sub   { font-size: .7rem; color: var(--sub); margin-top: 2px; }
+
+    .chart-card-body { padding: 18px 20px; height: 320px; }
+
+    /* Pay yüzdesi çubuğu */
+    .pct-wrap { display: flex; align-items: center; gap: 8px; min-width: 130px; }
+    .pct-bar  { flex: 1; height: 6px; border-radius: 99px; background: var(--bg); overflow: hidden; border: 1px solid var(--border); }
+    .pct-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #2d6a4f, #74c69d); }
+    .pct-txt  { font-size: .74rem; font-weight: 700; color: var(--sub); width: 44px; text-align: right; }
+
+    .empty-state { text-align:center; padding:60px 20px; color:var(--sub); }
+    .empty-state i { font-size:3rem; margin-bottom:14px; opacity:.3; display:block; }
+
+    @media (max-width:1100px) { .qty-kpi-grid { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width:480px)  { .qty-kpi-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ─── Özet Kartlar ─── -->
+<div class="qty-kpi-grid">
+    <div class="qty-kpi">
+        <div class="qty-icon" style="background:rgba(45,106,79,.1);color:#2d6a4f;"><i class="fas fa-weight-hanging"></i></div>
+        <div>
+            <div class="qty-label">Toplam Satış Miktarı</div>
+            <div class="qty-value">{{ total_kg }} kg</div>
+            <div class="qty-sub">Tüm zamanlar · {{ tx_count }} işlem</div>
+        </div>
+    </div>
+    <div class="qty-kpi">
+        <div class="qty-icon" style="background:rgba(59,130,246,.1);color:#2563eb;"><i class="fas fa-calendar-days"></i></div>
+        <div>
+            <div class="qty-label">Bu Yıl</div>
+            <div class="qty-value">{{ year_kg }} kg</div>
+            <div class="qty-sub">1 Ocak'tan bugüne</div>
+        </div>
+    </div>
+    <div class="qty-kpi">
+        <div class="qty-icon" style="background:rgba(139,92,246,.1);color:#7c3aed;"><i class="fas fa-calendar-day"></i></div>
+        <div>
+            <div class="qty-label">Bu Ay</div>
+            <div class="qty-value">{{ month_kg }} kg</div>
+            <div class="qty-sub">Ay başından bugüne</div>
+        </div>
+    </div>
+    <div class="qty-kpi">
+        <div class="qty-icon" style="background:rgba(34,197,94,.1);color:#16a34a;"><i class="fas fa-sack-dollar"></i></div>
+        <div>
+            <div class="qty-label">Toplam Hasılat</div>
+            <div class="qty-value">₺{{ total_amount }}</div>
+            <div class="qty-sub">Kg birimli satışlardan</div>
+        </div>
+    </div>
+</div>
+
+{% if has_data %}
+
+<!-- ─── Tüm Zamanlar Aylık Grafik ─── -->
+<div class="surface" style="margin-bottom:18px;">
+    <div class="card-header-bar">
+        <div>
+            <div class="ch-title"><i class="fas fa-chart-column me-2" style="color:var(--primary-light);"></i>Aylık Satış Miktarı — Tüm Zamanlar</div>
+            <div style="font-size:.77rem;color:var(--sub);margin-top:2px;">Kg birimli satışların aylık toplamı</div>
+        </div>
+    </div>
+    <div class="chart-card-body">
+        <canvas id="qtyChart"></canvas>
+    </div>
+</div>
+
+<!-- ─── Cari Bazında Kırılım ─── -->
+<div class="surface">
+    <div class="card-header-bar">
+        <div>
+            <div class="ch-title"><i class="fas fa-address-book me-2" style="color:var(--primary-light);"></i>Cari Bazında Satış Miktarı</div>
+            <div style="font-size:.77rem;color:var(--sub);margin-top:2px;">{{ cust_rows|length }} cari · miktara göre sıralı</div>
+        </div>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="dt">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Cari</th>
+                    <th>Miktar</th>
+                    <th>Pay</th>
+                    <th>İşlem</th>
+                    <th>Hasılat</th>
+                    <th>Ort. ₺/kg</th>
+                    <th>Son Satış</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in cust_rows %}
+                <tr>
+                    <td style="color:var(--sub);font-size:.8rem;font-weight:700;">{{ forloop.counter }}</td>
+                    <td><strong>{{ r.name }}</strong></td>
+                    <td style="font-weight:700;color:#2d6a4f;white-space:nowrap;">{{ r.kg }} kg</td>
+                    <td>
+                        <div class="pct-wrap">
+                            <div class="pct-bar"><div class="pct-fill" style="width:{{ r.pct|floatformat:1 }}%;"></div></div>
+                            <span class="pct-txt">%{{ r.pct|floatformat:1 }}</span>
+                        </div>
+                    </td>
+                    <td style="color:var(--sub);">{{ r.cnt }}</td>
+                    <td style="font-weight:600;white-space:nowrap;">₺{{ r.tutar }}</td>
+                    <td style="color:var(--sub);white-space:nowrap;">₺{{ r.avg_price }}</td>
+                    <td style="color:var(--sub);font-size:.82rem;white-space:nowrap;">{{ r.last }}</td>
+                    <td>
+                        <a href="{% url 'statement' %}?customer={{ r.customer_id }}" class="btn-info-soft" style="padding:5px 11px;font-size:.78rem;white-space:nowrap;">
+                            <i class="fas fa-file-alt"></i> Ekstre
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+
+<div class="surface">
+    <div class="empty-state" style="padding:80px 20px;">
+        <i class="fas fa-weight-hanging"></i>
+        <div style="font-size:1rem;font-weight:600;margin-bottom:6px;">Henüz kg birimli satış kaydı yok</div>
+        <div style="font-size:.84rem;color:var(--sub);">Kg birimiyle satış işlemi eklediğinizde miktar detayları burada görünecektir.</div>
+        <div style="margin-top:16px;">
+            <a href="{% url 'transaction_create' %}?type=sale" class="btn-g" style="display:inline-flex;">
+                <i class="fas fa-plus"></i> Satış Ekle
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if has_data %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    const raw = {{ chart_json|safe }};
+    if (!raw.labels.length) return;
+    const isDark    = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)';
+    const textColor = isDark ? '#8b949e' : '#6b7280';
+    new Chart(document.getElementById('qtyChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: raw.labels,
+            datasets: [
+                { label: 'Satış Miktarı (kg)', data: raw.kg,
+                  backgroundColor: 'rgba(45,106,79,.7)',
+                  hoverBackgroundColor: 'rgba(45,106,79,.9)',
+                  borderRadius: 5, maxBarThickness: 56 },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => '  ' + ctx.parsed.y.toLocaleString('tr-TR', { maximumFractionDigits: 2 }) + ' kg'
+                    }
+                },
+            },
+            scales: {
+                x: { ticks: { color: textColor, font: { size: 11 } }, grid: { color: gridColor } },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: textColor, font: { size: 11 },
+                        callback: v => v.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' kg' },
+                    grid: { color: gridColor },
+                },
+            },
+        },
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

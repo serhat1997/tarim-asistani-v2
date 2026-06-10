@@ -87,7 +87,7 @@
             <div class="field-3 mb-3">
                 <div>
                     <label class="form-label">Cari Seç</label>
-                    <select class="form-select" name="customer" required>
+                    <select class="form-select" name="customer" data-searchable required>
                         <option value="">— Cari seçin —</option>
                         {% for c in customers %}
                         <option value="{{ c.id }}">{{ c.name }}</option>
@@ -96,7 +96,7 @@
                 </div>
                 <div>
                     <label class="form-label">Ürün</label>
-                    <select class="form-select" id="product" name="product" required>
+                    <select class="form-select" id="product" name="product" data-searchable required>
                         <option value="">— Önce tür seçin —</option>
                     </select>
                 </div>
@@ -149,7 +149,7 @@
                         <i class="fas fa-seedling me-1" style="color:var(--primary-light);"></i>
                         Tarla <span style="font-weight:400;opacity:.6;">(isteğe bağlı)</span>
                     </label>
-                    <select name="field" class="form-select">
+                    <select name="field" class="form-select" data-searchable>
                         <option value="">— Tarla seçilmeyecek —</option>
                         {% for f in fields %}
                         <option value="{{ f.pk }}">{{ f.name }}{% if f.crop_type %} · {{ f.crop_type }}{% endif %} ({{ f.area }} dön.)</option>
@@ -176,7 +176,7 @@
                     <div id="invSaleSection" style="display:none; margin-top:14px; padding-top:14px; border-top:1px solid rgba(37,99,235,.2);">
                         <div>
                             <label class="form-label">Envanter Kalemi <span style="color:#dc2626;">*</span></label>
-                            <select name="inv_item_id" id="inv_item_id" class="form-select">
+                            <select name="inv_item_id" id="inv_item_id" class="form-select" data-searchable>
                                 <option value="">— Satışı yapılan envanter kalemini seçin —</option>
                                 {% for inv in inv_items %}
                                 <option value="{{ inv.pk }}"
@@ -260,6 +260,15 @@
             productSel.appendChild(el);
         });
         if (initProd) productSel.value = initProd;
+        // Aranabilir dropdown aktifse seçenek listesini yeniden yükle
+        if (productSel.tomselect) {
+            const ts = productSel.tomselect;
+            ts.clear(true);
+            ts.clearOptions();
+            ts.sync();
+            if (initProd) ts.setValue(initProd, true);
+            else if (opts.length) ts.setValue(productSel.value || opts[0].v, true);
+        }
     }
 
     productSel.addEventListener('change', function () {

@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Ana Sayfa{% endblock %} | Cari Takip</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <style>
@@ -183,7 +187,60 @@
         .icon-btn:hover { background: var(--bg); border-color: var(--primary-light); color: var(--primary); }
 
         /* ─── PAGE BODY ─── */
-        .page-body { padding: 26px 28px; flex: 1; }
+        /* Not: animasyon bittiğinde transform kalmamalı (fill-mode yok);
+           kalıcı transform, içerideki Bootstrap modallarının konumunu bozar. */
+        .page-body { padding: 26px 28px; flex: 1; animation: pageIn .3s ease; }
+        @keyframes pageIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .page-body { animation: none; }
+        }
+
+        /* ─── TOPBAR TARİH ─── */
+        .topbar-date {
+            display: inline-flex; align-items: center; gap: 7px;
+            font-size: .78rem; font-weight: 500; color: var(--sub);
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 999px; padding: 5px 13px; white-space: nowrap;
+        }
+        @media (max-width: 768px) { .topbar-date { display: none; } }
+
+        /* ─── TOM SELECT (aranabilir dropdown) tema uyumu ─── */
+        .ts-wrapper.form-select {
+            border: none; padding: 0; background: transparent;
+            background-image: none; box-shadow: none;
+        }
+        .ts-wrapper .ts-control {
+            background: var(--surface); border: 1.5px solid var(--border);
+            border-radius: 10px; padding: 9px 13px;
+            font-size: .9rem; color: var(--text); font-family: inherit;
+            box-shadow: none; transition: border-color .2s, box-shadow .2s;
+        }
+        .ts-wrapper.single .ts-control,
+        .ts-wrapper.single.input-active .ts-control,
+        .ts-wrapper.focus .ts-control { background-color: var(--surface) !important; }
+        .ts-wrapper.focus .ts-control {
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(64,145,108,.14);
+        }
+        .ts-wrapper .ts-control input { color: var(--text); font-size: .9rem; font-family: inherit; }
+        .ts-wrapper .ts-control input::placeholder { color: var(--sub); opacity: .7; }
+        .ts-wrapper.single .ts-control::after { border-top-color: var(--sub); }
+        .ts-dropdown {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 10px; box-shadow: var(--shadow-md);
+            font-size: .88rem; color: var(--text); font-family: inherit;
+            z-index: 400; margin-top: 4px; overflow: hidden;
+        }
+        .ts-dropdown .ts-dropdown-content { max-height: 260px; }
+        .ts-dropdown .option { padding: 8px 13px; }
+        .ts-dropdown .option.active { background: rgba(64,145,108,.1); color: var(--primary); }
+        .ts-dropdown .option.selected { background: rgba(64,145,108,.16); color: var(--primary); font-weight: 600; }
+        .ts-dropdown .no-results { padding: 10px 13px; color: var(--sub); }
+        [data-theme="dark"] .ts-dropdown .option.active { color: var(--accent); }
+        [data-theme="dark"] .ts-dropdown .option.selected { color: var(--accent); }
 
         /* ─── CARDS ─── */
         .surface {
@@ -402,6 +459,7 @@
             <span class="page-title">{% block page_title %}{% endblock %}</span>
         </div>
         <div class="topbar-r">
+            <span class="topbar-date"><i class="far fa-calendar"></i>{% now "j F Y, l" %}</span>
             <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="Tema Değiştir">
                 <i class="fas fa-moon"></i>
             </button>
@@ -451,6 +509,7 @@
 
 {% endwith %}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <script>
     function toggleSb() {
         document.getElementById('sidebar').classList.toggle('open');
@@ -488,6 +547,63 @@
         if (msg) document.getElementById('deleteModalMsg').textContent = msg;
         new bootstrap.Modal(document.getElementById('deleteModal')).show();
     }
+
+    /* data-searchable işaretli select'leri aranabilir dropdown'a çevirir */
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.TomSelect) {
+            document.querySelectorAll('select[data-searchable]').forEach(function(el) {
+                if (el.tomselect) return;
+                new TomSelect(el, {
+                    create: false,
+                    maxOptions: null,
+                    allowEmptyOption: true,
+                    sortField: [{ field: '$order' }],
+                    render: {
+                        no_results: function() { return '<div class="no-results"><i class="fas fa-search me-1"></i>Sonuç bulunamadı</div>'; }
+                    }
+                });
+            });
+        }
+
+        // Başarı/bilgi mesajları 4,5 sn sonra kendiliğinden kapanır
+        document.querySelectorAll('.alert-success, .alert-info').forEach(function(a) {
+            setTimeout(function() {
+                if (window.bootstrap && document.body.contains(a)) {
+                    bootstrap.Alert.getOrCreateInstance(a).close();
+                }
+            }, 4500);
+        });
+
+        // Çift gönderim koruması: submit sonrası buton kilitlenir + spinner
+        document.querySelectorAll('form').forEach(function(f) {
+            f.addEventListener('submit', function(e) {
+                if (f.dataset.submitted) { e.preventDefault(); return; }
+                f.dataset.submitted = '1';
+                var btn = f.querySelector('button[type="submit"]');
+                setTimeout(function() {
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.style.opacity = '.7';
+                        btn.insertAdjacentHTML('afterbegin', '<i class="fas fa-circle-notch fa-spin me-1 submit-spin"></i>');
+                    }
+                }, 0);
+            });
+        });
+    });
+
+    // Geri tuşuyla dönüldüğünde (bfcache) formlar tekrar kullanılabilir olsun
+    window.addEventListener('pageshow', function() {
+        document.querySelectorAll('form[data-submitted]').forEach(function(f) {
+            delete f.dataset.submitted;
+            var btn = f.querySelector('button[type="submit"]');
+            if (btn) {
+                btn.disabled = false;
+                btn.style.opacity = '';
+                var sp = btn.querySelector('.submit-spin');
+                if (sp) sp.remove();
+            }
+        });
+    });
 </script>
 {% block extra_js %}{% endblock %}
 </body>

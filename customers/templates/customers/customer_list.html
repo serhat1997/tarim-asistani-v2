@@ -91,7 +91,7 @@
     </div>
     <div class="cari-filter-group">
         <label><i class="fas fa-address-book me-1"></i>Cari Seç</label>
-        <select class="form-select" id="customerSelect" onchange="applyFilter()">
+        <select class="form-select" id="customerSelect" data-searchable onchange="applyFilter()">
             <option value="">— Cari seçin —</option>
             {% for c in customers %}
             <option value="{{ c.id }}" {% if selected_customer and selected_customer.id == c.id %}selected{% endif %}>
